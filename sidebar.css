@@ -1,0 +1,146 @@
+/* Sidebar Layout */
+.app-wrapper {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 250px;
+    background-color: var(--card-bg);
+    border-right: 1px solid var(--border-color);
+    padding: 2rem 1.5rem;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar h2 {
+    font-size: 1.2rem;
+    margin-bottom: 2rem;
+    color: var(--accent-color);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.sidebar-nav a {
+    display: block;
+    padding: 0.8rem 1rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.sidebar-nav a:hover {
+    background-color: rgba(79, 70, 229, 0.1);
+    color: var(--accent-color);
+}
+
+.sidebar-nav a.active {
+    background-color: var(--accent-color);
+    color: white;
+}
+
+.main-content {
+    flex-grow: 1;
+    overflow-x: hidden;
+    /* Prevent horizontal scroll from overflowing content */
+    background-color: var(--bg-color);
+}
+
+/* Override container */
+.dashboard-container {
+    max-width: 1600px;
+    /* Allow wider layout */
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+/* Responsive Sidebar */
+@media (max-width: 1024px) {
+    .sidebar {
+        width: 80px;
+        padding: 1rem 0.5rem;
+        align-items: center;
+    }
+
+    .sidebar h2 {
+        display: none;
+    }
+
+    .sidebar-nav a span {
+        display: none;
+    }
+
+    .sidebar-nav a {
+        text-align: center;
+        padding: 0.8rem;
+    }
+
+    .sidebar-nav a::before {
+        content: attr(data-icon);
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .app-wrapper {
+        flex-direction: column;
+        /* Stack sidebar on top/bottom or just keep left small */
+    }
+
+    .sidebar {
+        width: 100%;
+        /* Top nav style */
+        height: auto;
+        flex-direction: row;
+        padding: 0.5rem;
+        position: relative;
+        overflow-x: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        justify-content: space-between;
+    }
+
+    .sidebar h2 {
+        display: block;
+        /* Show title again */
+        font-size: 1rem;
+        margin-bottom: 0;
+        margin-right: 1rem;
+        white-space: nowrap;
+    }
+
+    .sidebar-nav {
+        flex-direction: row;
+        gap: 0.5rem;
+        overflow-x: auto;
+    }
+
+    .sidebar-nav a {
+        padding: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .sidebar-nav a span {
+        display: none;
+        /* Keep text hidden, icon only */
+    }
+
+    /* Ensure icons are visible */
+    .sidebar-nav a::before {
+        font-size: 1.2rem;
+    }
+}
