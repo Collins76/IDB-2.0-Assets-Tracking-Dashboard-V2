@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDB 2.0 Assets Tagging Monitoring Dashboard</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <!-- SheetJS (xlsx) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Highcharts -->
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/highcharts-3d.js"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- ApexCharts -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="sidebar.css">
+    <link rel="stylesheet" href="insights.css">
+    <link rel="stylesheet" href="ai-styles.css">
+    <link rel="stylesheet" href="switch_styles.css">
+    <style>
+        html {
+            scroll-behavior: smooth
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-wrapper">
+        <nav class="sidebar">
+            <h2 style="padding-left: 1rem; color: #fff;">IDB Monitor</h2>
+            <div class="sidebar-nav">
+                <a href="#" id="nav-home" class="nav-link active">🏠 Home</a>
+                <a href="#" id="nav-dashboard" class="nav-link">📊 Dashboard</a>
+
+                <div id="dashboard-sub-links" class="hidden"
+                    style="margin-left: 1.5rem; border-left: 2px solid #555; padding-left: 0.5rem; display: flex; flex-direction: column; gap: 0.3rem;">
+                    <a href="#filters" class="nav-link sub-link" style="font-size: 0.9rem; padding: 0.5rem;">🔍
+                        Filters</a>
+                    <a href="#kpis" class="nav-link sub-link" style="font-size: 0.9rem; padding: 0.5rem;">📈 KPIs</a>
+                    <a href="#map-section" class="nav-link sub-link" style="font-size: 0.9rem; padding: 0.5rem;">🗺️
+                        Map</a>
+                    <a href="#vendor" class="nav-link sub-link" style="font-size: 0.9rem; padding: 0.5rem;">🏢
+                        Vendors</a>
+                    <a href="#charts" class="nav-link sub-link" style="font-size: 0.9rem; padding: 0.5rem;">📊
+                        Charts</a>
+                    <a href="#dt-analysis" class="nav-link sub-link" style="font-size: 0.9rem; padding: 0.5rem;">📝
+                        Table</a>
+                </div>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <!-- Executive Summary View -->
+            <div id="view-home" class="exec-summary">
+                <header class="exec-header">
+                    <h1>IDB 2.0 Monitoring: Executive Summary</h1>
+                    <p>Strategic Overview of Asset Enumeration Performance & Field Operations</p>
+                    <div class="last-updated" id="execLastUpdated">Last Updated: Now</div>
+                </header>
+
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <h2>The Data Speaking</h2>
+                        <p><strong>Objective:</strong> To achieve 100% digitization of electrical assets within the
+                            Shomolu Business Unit, ensuring accurate data for network planning and billing efficiency.
+                        </p>
+                        <p><strong>Current Status:</strong> <span id="exec-status-text">The dashboard reveals a
+                                disparity in performance between
+                                vendor partners. While overall coverage is expanding, the velocity of enumeration needs
+                                to
+                                align closer with the project timeline to avoid schedule slippage.</span></p>
+                        <p><strong>Scope:</strong> This monitoring tool aggregates real-time data from <span
+                                id="exec-total-officers">0</span> field officers,
+                            tracking the geospatial tagging of <span id="exec-total-assets">0</span> assets.</p>
+                        <ul
+                            style="list-style-type: none; padding-left: 0; display: flex; gap: 1rem; margin-top: 0.5rem;">
+                            <li
+                                style="background: rgba(59, 130, 246, 0.1); padding: 0.5rem 1rem; border-radius: 6px; color: #3b82f6; font-size: 0.9rem;">
+                                ⚡ <span id="exec-count-poles">0</span> Poles</li>
+                            <li
+                                style="background: rgba(249, 115, 22, 0.1); padding: 0.5rem 1rem; border-radius: 6px; color: #f97316; font-size: 0.9rem;">
+                                🏙️ <span id="exec-count-dts">0</span> DTs</li>
+                            <li
+                                style="background: rgba(16, 185, 129, 0.1); padding: 0.5rem 1rem; border-radius: 6px; color: #10b981; font-size: 0.9rem;">
+                                🔌 <span id="exec-count-feeders">0</span> Feeders</li>
+                        </ul>
+                    </div>
+
+                    <div class="summary-card">
+                        <h2>Key Metrics & Parameters</h2>
+                        <ul class="parameter-list">
+                            <li>
+                                <span class="param-icon">🏃</span>
+                                <div>
+                                    <strong>Run Rate (Velocity)</strong>
+                                    <p>Current: <span id="exec-avg-rate"
+                                            style="color: #fff; font-weight: bold;">0</span> assets/day. <span
+                                            style="color: #ef4444;">Target: >50 assets/day/user</span></p>
+                                </div>
+                            </li>
+                            <li style="grid-column: span 2; width: 100%;">
+                                <div class="ai-assistant-container">
+                                    <div class="ai-header">
+                                        <span class="ai-icon">🤖</span>
+                                        <div>
+                                            <h3>AI Data Assistant</h3>
+                                            <p>Ask sophisticated questions about your data</p>
+                                        </div>
+                                    </div>
+                                    <div class="ai-input-wrapper">
+                                        <input type="text" id="ai-query"
+                                            placeholder="Try 'Avg run rate for Jesom' or 'Top 3 users'..."
+                                            autocomplete="off">
+                                        <button id="ai-ask-btn">Ask</button>
+                                    </div>
+                                    <div id="ai-response" class="ai-response"></div>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="rec-section">
+                    <h2 style="margin-bottom: 1.5rem; text-align: center;">Strategic Recommendations for Vendor
+                        Partners</h2>
+                    <div class="rec-grid">
+                        <div class="summary-card rec-card etc-card">
+                            <div class="card-header">
+                                <h3>ETC Workforce</h3>
+                                <span class="status-badge status-attention">Requires Attention</span>
+                            </div>
+                            <div class="rec-content">
+                                <div class="rec-item">
+                                    <h4>🚀 Accelerate Deployment</h4>
+                                    <p>Current velocity is below the optimal threshold. Immediate action is required to
+                                        increase the number of active field officers or extend operational hours to meet
+                                        the daily run rate target.</p>
+                                </div>
+                                <div class="rec-item">
+                                    <h4>📍 Targeted Coverage</h4>
+                                    <p>Analysis shows clustering in specific zones. Redirect resources to under-served
+                                        Undertakings to ensure balanced network visibility and avoid data gaps.</p>
+                                </div>
+                                <div class="rec-item">
+                                    <h4>🔄 Data Synchronization</h4>
+                                    <p>Ensure stricter adherence to end-of-day data synchronization protocols to
+                                        prevent data lag and ensure the dashboard reflects real-time progress.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="summary-card rec-card jesom-card">
+                            <div class="card-header">
+                                <h3>Jesom Technology</h3>
+                                <span class="status-badge status-good">On Track</span>
+                            </div>
+                            <div class="rec-content">
+                                <div class="rec-item">
+                                    <h4>⭐ Sustain Momentum</h4>
+                                    <p>Performance consistency is commendable. Continue the strong daily run rate. Use
+                                        current workflows as a benchmark for other regions.</p>
+                                </div>
+                                <div class="rec-item">
+                                    <h4>🎯 Precision & Quality</h4>
+                                    <p>Focus on "Out of Boundary" assets. Conduct spot checks on GPS coordinates to
+                                        minimize drift and ensure assets are mapped to the correct land parcels.</p>
+                                </div>
+                                <div class="rec-item">
+                                    <h4>📝 Enhanced Reporting</h4>
+                                    <p>Increase granularity in reporting pole defects (e.g., differentiating between
+                                        'Cracked' and 'Leaning'). This data is vital for the engineering maintenance
+                                        budget.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-container hidden" id="view-dashboard">
+                <!-- Header -->
+                <header>
+                    <h1>IDB 2.0 Assets Tagging Monitoring Dashboard</h1>
+                    <div class="header-controls">
+
+                        <div class="view-toggle-wrapper" id="viewModeWrapper"
+                            style="display: none; align-items: center; gap: 10px; margin-left: 10px; padding-left: 10px; border-left: 1px solid #555;">
+                            <span style="font-size: 0.85rem; color: #a0a0a0;">Field</span>
+                            <label class="switch">
+                                <input type="checkbox" id="viewModeToggle">
+                                <span class="slider round"></span>
+                            </label>
+                            <span style="font-size: 0.85rem; color: #fff; font-weight: 600;">Total vs Actual</span>
+                        </div>
+                        <button id="downloadExcel" class="upload-btn">
+                            Download Excel
+                        </button>
+                        <div class="last-updated" id="lastUpdated">Last Updated: Now</div>
+                    </div>
+                </header>
+
+                <!-- Slicers / Filters -->
+                <section class="filters-section" id="filters">
+                    <div class="filter-group">
+                        <label>Vendor</label>
+                        <select id="vendorFilter">
+                            <option value="All">All Vendors</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Business Unit</label>
+                        <select id="buFilter">
+                            <option value="All">All Business Units</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Undertaking</label>
+                        <select id="utFilter">
+                            <option value="All">All Undertakings</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>User</label>
+                        <select id="userFilter">
+                            <option value="All">All Users</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="feederFilter">Feeder</label>
+                        <select id="feederFilter">
+                            <option value="">All Feeders</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>DT Name</label>
+                        <select id="dtFilter">
+                            <option value="All">All DTs</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="upriserFilter">Upriser</label>
+                        <select id="upriserFilter">
+                            <option value="All">All Uprisers</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="materialFilter">Pole Material</label>
+                        <select id="materialFilter">
+                            <option value="">All Materials</option>
+                            <option value="Concrete">Concrete</option>
+                            <option value="Wood">Wooden</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="dateFilter">Date</label>
+                        <select id="dateFilter">
+                            <option value="All">All Dates</option>
+                        </select>
+                    </div>
+                </section> <!-- Date Filter could be added here -->
+
+                <!-- KPI Cards -->
+                <section class="kpi-section" id="kpis">
+                    <div class="kpi-card">
+                        <h3>Total Records Captured</h3>
+                        <div class="value" id="totalRecords">0</div>
+                    </div>
+                    <div class="kpi-card">
+                        <h3>Active Users</h3>
+                        <div class="value" id="activeUsers">0</div>
+                    </div>
+                    <div class="kpi-card">
+                        <h3>Avg Daily Run Rate</h3>
+                        <div class="value" id="avgRunRate">0</div>
+                    </div>
+                    <div class="kpi-card">
+                        <h3>Total Buildings Connected</h3>
+                        <div class="value" id="totalBuildings">0</div>
+                    </div>
+                    <div class="kpi-card">
+                        <h3>Total DTs Captured</h3>
+                        <div class="value" id="totalDTs">0</div>
+                    </div>
+                    <div class="kpi-card">
+                        <h3>Total Feeders Captured</h3>
+                        <div class="value" id="totalFeeders">0</div>
+                    </div>
+                    <div class="kpi-card">
+                        <h3>Total Concrete Poles</h3>
+                        <div class="value" id="totalConcrete">0</div>
+                    </div>
+                    <div class="kpi-card">
+                        <h3>Total Wooden Poles</h3>
+                        <div class="value" id="totalWooden">0</div>
+                    </div>
+                </section>
+
+                <!-- Map Section & Key Insights -->
+                <section class="map-section" id="map-section" style="margin-bottom: 2rem;">
+                    <div class="map-insights-grid">
+
+                        <!-- Map -->
+                        <div class="chart-container" style="min-height: 500px; display: flex; flex-direction: column;">
+                            <h2 style="display: flex; align-items: center; gap: 10px;">🗺️ Geographical Distribution
+                            </h2>
+                            <div id="map" style="flex-grow: 1; min-height: 400px; width: 100%; border-radius: 8px;">
+                            </div>
+                            <div class="map-legend" style="margin-top: 10px; font-size: 0.9rem; color: #a0a0a0;">
+                                <span style="color: #0EA5E9; margin-right: 15px;">● ETC Workforce</span>
+                                <span style="color: #EF4444;">● Jesom Technology</span>
+                            </div>
+                        </div>
+
+                        <!-- Strategic Insights Panel -->
+                        <div class="insights-card">
+                            <h2>KEY INSIGHTS & DETAILS</h2>
+                            <div id="keyInsightsContent"
+                                style="display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                                <!-- Populated by JS -->
+                                <div style="text-align: center; color: #a0a0a0;">Loading Analysis...</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Vendor Performance Comparison -->
+                <section class="vendor-section" id="vendor" style="margin-bottom: 2rem;">
+                    <div class="chart-container" style="width: 100%; min-height: 450px;">
+                        <h2 style="display: flex; align-items: center; gap: 10px;">📊 Vendor Performance Comparison</h2>
+                        <div class="vendor-charts-grid">
+                            <div id="vendorTotalChart"></div>
+                            <div id="vendorRunRateChart"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Charts Grid -->
+                <section class="charts-grid" id="charts">
+                    <!-- User Performance Bar Chart -->
+                    <div class="chart-container wide">
+                        <h2>User Performance (Records Captured)</h2>
+                        <div id="userPerformanceChart"></div>
+                    </div>
+
+                    <!-- Activity Over Time -->
+                    <div class="chart-container">
+                        <h2>Daily Run Rate Comparison: ETC Workforce vs. Jesom Technology</h2>
+                        <div id="projectVelocityChart"></div>
+                    </div>
+
+                    <!-- Pole Type Distribution -->
+                    <div class="chart-container">
+                        <h2>Pole Type Distribution</h2>
+                        <div id="poleTypeChart"></div>
+                    </div>
+
+                    <!-- Issues by Field Staff (Stacked Bar) -->
+                    <div class="chart-container wide">
+                        <h2>Distribution of Reported Issues by Field Staff</h2>
+                        <div id="staffIssuesChart"></div>
+                    </div>
+
+                    <!-- Equal split row for Undertaking and Feeder -->
+                    <div style="grid-column: span 2; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                        <!-- Undertaking Breakdown -->
+                        <div class="chart-container">
+                            <h2>Undertaking Distribution</h2>
+                            <div id="undertakingChart"></div>
+                        </div>
+
+                        <!-- Feeder Breakdown -->
+                        <div class="chart-container">
+                            <h2>Top Feeders by Captured Assets</h2>
+                            <div id="feederChart"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Detailed DT Analysis Table -->
+                <!-- Detailed DT Analysis Table -->
+                <!-- Variance Charts Section (Hidden by default) -->
+                <section class="charts-grid hidden" id="variance-charts">
+                    <!-- Target vs Actual (Bullet/Bar) -->
+                    <div class="chart-container wide">
+                        <h2>Target vs. Actual Progress (Feeders & DTs)</h2>
+                        <div id="targetActualChart"></div>
+                    </div>
+
+                    <!-- Pole Health Reconciliation -->
+                    <div class="chart-container wide">
+                        <h2>Pole Health Reconciliation (Top 10 DTs)</h2>
+                        <div id="poleHealthChart"></div>
+                    </div>
+                </section>
+
+                <section class="table-section" id="dt-analysis" style="margin-top: 2rem;">
+                    <div class="chart-container wide" style="height: auto; min-height: 400px; overflow-x: auto;">
+                        <h2>DT Performance & Field Officer Analysis</h2>
+                        <table id="dtTable" class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>DT Name</th>
+                                    <th>Vendor</th>
+                                    <th>Field Officers</th>
+                                    <th>Poles Captured</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Rows will be populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <footer>
+                    <p>IDB 2.0 Monitoring System &copy; 2026</p>
+                </footer>
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
