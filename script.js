@@ -77,10 +77,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const boqDataUrl = "https://zgypltdsqjhftnxadunu.supabase.co/storage/v1/object/public/dashboard-assets/BOQ-IDB.json";
 
+    const fetchWithFallback = async (primaryUrl, fallbackUrl) => {
+        try {
+            const res = await fetch(primaryUrl + '?t=' + new Date().getTime());
+            if (!res.ok) throw new Error('Network response was not ok');
+            return await res.json();
+        } catch (error) {
+            console.warn(`Primary fetch failed for ${primaryUrl}, trying fallback to ${fallbackUrl}...`, error);
+            const resFallback = await fetch(fallbackUrl + '?t=' + new Date().getTime());
+            if (!resFallback.ok) throw new Error('Fallback network response was not ok');
+            return await resFallback.json();
+        }
+    };
+
     Promise.all([
-        // Add timestamp to prevent browser/CDN caching
-        fetch(fieldDataUrl + '?t=' + new Date().getTime()).then(res => res.json()),
-        fetch(boqDataUrl + '?t=' + new Date().getTime()).then(res => res.json())
+        // Try Supabase first, fallback to local file
+        fetchWithFallback(fieldDataUrl, './converted_data_latest.json'),
+        fetchWithFallback(boqDataUrl, './BOQ-IDB.json')
     ]).then(([fieldData, boq]) => {
         // Process Field Data
         fieldData.forEach(item => {
@@ -744,7 +757,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Usually map is useful. Detailed request didn't say hide map.
         renderMap();
         updateKeyInsights();
+        renderStrategicRecommendations();
     }
+
 
     function updateKPIs() {
         if (viewMode === 'boq') {
@@ -1739,7 +1754,143 @@ document.addEventListener('DOMContentLoaded', () => {
         chart2.render();
     }
 
+
+    // 8. Render Strategic Recommendations (Dynamic)
+    function renderStrategicRecommendations() {
+        // Use globalData to ensure recommendations stand regardless of transient filters
+        // unless we want them to reflect the filtered view. Strategic usually implies overall.
+        // Let's use globalData for stability.
+
+        const vendors = ['ETC Workforce', 'Jesom Technology'];
+
+        vendors.forEach(vendor => {
+            // Filter Data for Vendor
+            const vData = globalData.filter(d => d.Vendor_Name === vendor);
+
+            if (vData.length === 0) return; // No data, skip
+
+            // --- Metrics Calculation ---
+
+            // 1. Run Rate
+            // distinct dates
+            const dates = new Set(vData.map(d => d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : ''));
+            const activeDays = dates.size || 1;
+            const totalRecords = vData.length;
+            const avgRate = (totalRecords / activeDays).toFixed(0); // Integer for readability
+
+            // 2. Coverage (Undertakings)
+            const activeUTs = new Set(vData.map(d => d.Undertaking)).size;
+
+            // 3. Quality (Defect Rate)
+            const badPoles = vData.filter(d => d.Issue_Type && d.Issue_Type !== 'Good Condition').length;
+            const defectPct = ((badPoles / totalRecords) * 100).toFixed(1);
+
+            // 4. Synchronization (Last Date)
+            // Assumes yyyy-mm-dd or similar sortable via Date parse
+            const sortedDates = Array.from(dates).sort();
+            const lastDateISO = sortedDates[sortedDates.length - 1];
+            const lastDateObj = lastDateISO ? new Date(lastDateISO) : new Date();
+            const today = new Date();
+            // Diff in days
+            const diffTime = Math.abs(today - lastDateObj);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+
+            // --- Logic & Text Formatting ---
+
+            let status = 'On Track';
+            let statusClass = 'status-good';
+
+            // Thresholds
+            const TARGET_RATE = 50;
+
+            if (avgRate < TARGET_RATE) {
+                status = 'Requires Attention';
+                statusClass = 'status-attention';
+            }
+
+            // Rec 1: Velocity
+            let rec1 = {};
+            if (avgRate < 30) {
+                rec1.icon = '🚀';
+                rec1.title = 'Accelerate Deployment';
+                rec1.text = `Current velocity (${avgRate}/day) is critically low. Immediate resource scale-up is required to meet the daily target of ${TARGET_RATE}.`;
+            } else if (avgRate < TARGET_RATE) {
+                rec1.icon = '⚠️';
+                rec1.title = 'Increase Pace';
+                rec1.text = `Current velocity (${avgRate}/day) is approaching target but still falls short. Consider extending operational hours.`;
+            } else {
+                rec1.icon = '⭐';
+                rec1.title = 'Sustain Momentum';
+                rec1.text = `Strong performance with a velocity of ${avgRate}/day. Keep this consistency to ensure project timelines are met.`;
+            }
+
+            // Rec 2: Coverage
+            let rec2 = {};
+            // Logic: Is it clustered?
+            // Simple heuristic: If high volume but low UT count -> Clustered.
+            if (activeUTs < 2 && totalRecords > 100) {
+                rec2.icon = '📍';
+                rec2.title = 'Expand Coverage';
+                rec2.text = `High activity concentration detected in only ${activeUTs} Undertaking. Redeploy teams to under-served areas to avoid data gaps.`;
+            } else {
+                rec2.icon = '🗺️';
+                rec2.title = 'Balanced Coverage';
+                rec2.text = `Active across ${activeUTs} Undertakings. Continue maintaining balanced visibility across the network.`;
+            }
+
+            // Rec 3: Quality / Data Sync
+            let rec3 = {};
+            // Prio 1: specific defect issues
+            if (defectPct > 20) {
+                rec3.icon = '📝';
+                rec3.title = 'Enhanced Reporting';
+                rec3.text = `High defect rate (${defectPct}%). Ensure engineering validation is performed to confirm the accuracy of 'Bad' pole tags.`;
+            } else if (defectPct < 2) {
+                rec3.icon = '🎯';
+                rec3.title = 'Precision Check';
+                rec3.text = `Defect rate is unusually low (${defectPct}%). Conduct spot checks to ensure defects are not being overlooked.`;
+            } else if (diffDays > 3) {
+                rec3.icon = '🔄';
+                rec3.title = 'Data Synchronization';
+                rec3.text = `Data lag detected (last active: ${lastDateISO}). Enforce daily sync protocols to maintain real-time dashboard accuracy.`;
+            } else {
+                rec3.icon = '✅';
+                rec3.title = 'Quality Assurance';
+                rec3.text = `Data quality appears healthy (Defect Rate: ${defectPct}%). Continue standard verification procedures.`;
+            }
+
+            // --- Render ---
+            const idKey = vendor.split(' ')[0].toLowerCase();
+            const badge = document.getElementById(`status-badge-${idKey}`);
+            const content = document.getElementById(`rec-content-${idKey}`);
+
+            if (badge) {
+                badge.textContent = status;
+                badge.className = `status-badge ${statusClass}`;
+            }
+
+            if (content) {
+                content.innerHTML = `
+                    <div class="rec-item">
+                        <h4>${rec1.icon} ${rec1.title}</h4>
+                        <p>${rec1.text}</p>
+                    </div>
+                    <div class="rec-item">
+                        <h4>${rec2.icon} ${rec2.title}</h4>
+                        <p>${rec2.text}</p>
+                    </div>
+                    <div class="rec-item">
+                        <h4>${rec3.icon} ${rec3.title}</h4>
+                        <p>${rec3.text}</p>
+                    </div>
+                `;
+            }
+        });
+    }
+
 }); // End DOMContentLoaded
+
 
 
 
