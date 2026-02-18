@@ -1448,7 +1448,91 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        return Object.values(map);
+        // 3. Convert Map to Array and Finalize
+        return Object.values(map).map(item => ({
+            ...item,
+            users: Array.from(item.users)
+        }));
+    }
+
+    // 6. Detailed DT Analysis Table (Enhanced)
+    function renderDTTable() {
+        const tbody = document.querySelector('#dtTable tbody');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+        const searchVal = (document.getElementById('dtSearchInput')?.value || '').toLowerCase();
+
+        // 1. Get Enhanced Data (Union of BOQ and Field)
+        const data = getEnhancedDTData();
+
+        // 2. Filter by Search Input
+        const filtered = data.filter(item => {
+            if (!searchVal) return true;
+            return (
+                (item.dtName || '').toLowerCase().includes(searchVal) ||
+                (item.vendor || '').toLowerCase().includes(searchVal) ||
+                item.users.some(u => String(userFullNames[u] || u || '').toLowerCase().includes(searchVal))
+            );
+        });
+
+        // 3. Update Info Count
+        const infoEl = document.getElementById('tableInfo');
+        if (infoEl) infoEl.textContent = `Showing ${filtered.length} of ${data.length} DTs`;
+
+        // 4. Render Rows
+        filtered.slice(0, 100).forEach((row, index) => {
+            const tr = document.createElement('tr');
+
+            // Vendor Tag
+            let vendorClass = '';
+            if (row.vendor === 'ETC Workforce') vendorClass = 'vendor-etc';
+            if (row.vendor === 'Jesom Technology') vendorClass = 'vendor-jesom';
+
+            // Progress Bar / Status Logic
+            const progress = row.boqTotal > 0 ? (row.actualTotal / row.boqTotal) * 100 : 0;
+            let status = 'In Progress';
+            let statusColor = '#f59e0b'; // Orange
+
+            if (row.actualTotal === 0) {
+                status = 'Not Started';
+                statusColor = '#ef4444'; // Red
+            } else if (progress >= 100) {
+                status = 'Completed';
+                statusColor = '#10b981'; // Green
+            } else if (progress > 90) {
+                status = 'Near Completion';
+                statusColor = '#3b82f6'; // Blue
+            }
+
+            // User Names
+            const userNames = row.users.map(u => userFullNames[u] || u).join(', ');
+
+            tr.innerHTML = `
+                <td style="text-align: center;">${index + 1}</td>
+                <td style="font-weight: 500; color: #fff;">${row.dtName}</td>
+                <td>${row.feeder}</td>
+                <td>${row.bu}</td>
+                <td>${row.undertaking}</td>
+                <td><span class="vendor-tag ${vendorClass}">${row.vendor}</span></td>
+                <td style="max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${userNames}">${userNames}</td>
+                <td style="text-align: center; font-weight: bold; color: #0EA5E9;">${row.boqTotal}</td>
+                <td style="text-align: center;">${row.actualTotal}</td>
+                <td style="text-align: center; color: #a0a0a0;">${Math.max(0, row.boqTotal - row.actualTotal)}</td>
+                <td style="text-align: center;">${row.concrete}</td>
+                <td style="text-align: center;">${row.wooden}</td>
+                <td style="width: 70px;">
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <div style="flex-grow: 1; height: 4px; background: #333; border-radius: 2px; overflow: hidden;">
+                            <div style="width: ${Math.min(100, progress)}%; height: 100%; background: ${statusColor};"></div>
+                        </div>
+                        <span style="font-size: 0.8em; color: ${statusColor};">${progress.toFixed(0)}%</span>
+                    </div>
+                </td>
+                <td><span style="font-size: 0.8em; padding: 1px 6px; border-radius: 8px; background: ${statusColor}20; color: ${statusColor}; border: 1px solid ${statusColor}40; white-space: nowrap;">${status}</span></td>
+            `;
+            tbody.appendChild(tr);
+        });
     }
 
 
