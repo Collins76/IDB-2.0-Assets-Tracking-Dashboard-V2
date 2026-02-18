@@ -1,9 +1,9 @@
 /* AI Assistant Styles */
 .ai-assistant-container {
-    background: linear-gradient(145deg, #1f2125, #2a2d34);
+    background: hsl(var(--card));
     padding: 1.2rem;
-    border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius);
+    border: 1px solid hsl(var(--border));
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     width: 100%;
     margin-top: 0.5rem;
@@ -18,28 +18,26 @@
 
 .ai-icon {
     font-size: 2rem;
-    background: rgba(99, 102, 241, 0.1);
-    /* Indigo tint */
+    background: hsl(var(--primary) / 0.1);
     padding: 0.6rem;
     border-radius: 12px;
-    box-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
+    box-shadow: 0 0 10px hsl(var(--primary) / 0.2);
 }
 
 .ai-header h3 {
     margin: 0;
     font-size: 1.1rem;
-    background: linear-gradient(90deg, #ff2a2a, #ff7b7b);
+    background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)));
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
     font-weight: 700;
-    text-shadow: 0 0 20px rgba(255, 42, 42, 0.3);
 }
 
 .ai-header p {
     margin: 0;
     font-size: 0.85rem;
-    color: #d1d5db;
+    color: hsl(var(--muted-foreground));
 }
 
 .ai-input-wrapper {
@@ -50,11 +48,11 @@
 
 .ai-input-wrapper input {
     flex: 1;
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid #4b5563;
-    color: #e5e7eb;
+    background: hsl(var(--input));
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--foreground));
     padding: 0.8rem 1rem;
-    border-radius: 8px;
+    border-radius: var(--radius);
     font-size: 0.95rem;
     transition: all 0.3s ease;
     outline: none;
@@ -62,52 +60,44 @@
 }
 
 .ai-input-wrapper input:focus {
-    border-color: #818cf8;
-    /* Indigo-400 */
-    background: rgba(0, 0, 0, 0.5);
-    box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.2);
+    border-color: hsl(var(--ring));
+    background: hsl(var(--background));
+    box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2);
 }
 
 .ai-input-wrapper button {
-    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-    color: white;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
     border: none;
     padding: 0 1.5rem;
-    border-radius: 8px;
+    border-radius: var(--radius);
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
-    box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3);
 }
 
 .ai-input-wrapper button:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 8px -1px rgba(79, 70, 229, 0.4);
-    filter: brightness(1.1);
-}
-
-.ai-input-wrapper button:active {
-    transform: translateY(0);
+    background: hsl(var(--primary) / 0.9);
+    box-shadow: 0 4px 12px hsl(var(--primary) / 0.3);
 }
 
 .ai-response {
     margin-top: 1rem;
     min-height: 1.5rem;
     font-size: 0.95rem;
-    color: #ffffff;
-    /* White Text */
+    color: hsl(var(--foreground));
     line-height: 1.6;
     padding: 1rem;
-    border-left: 4px solid #ff2a2a;
-    background: rgba(255, 42, 42, 0.1);
-    border-radius: 8px;
+    border-left: 4px solid hsl(var(--accent));
+    background: hsl(var(--accent) / 0.1);
+    border-radius: var(--radius);
     opacity: 0;
     transform: translateY(10px);
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     white-space: pre-wrap;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     min-height: 60px;
-    /* Prevent jumpiness */
 }
 
 .ai-response.visible {
@@ -121,7 +111,7 @@
     display: inline-block;
     vertical-align: bottom;
     animation: blink 1s step-start infinite;
-    color: #ffffff;
+    color: hsl(var(--foreground));
     margin-left: 2px;
 }
 
@@ -142,7 +132,7 @@
 .ai-loading span {
     width: 6px;
     height: 6px;
-    background: #ffffff;
+    background: hsl(var(--foreground));
     border-radius: 50%;
     animation: bounce 1.4s infinite ease-in-out both;
 }
@@ -169,6 +159,6 @@
 }
 
 .ai-response strong {
-    color: #ff2a2a;
+    color: hsl(var(--primary));
     font-weight: 600;
 }

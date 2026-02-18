@@ -38,13 +38,13 @@
 <body>
     <div class="app-wrapper">
         <nav class="sidebar">
-            <h2 style="padding-left: 1rem; color: #fff;">IDB Monitor</h2>
+            <h2 style="padding-left: 1rem; color: hsl(var(--foreground));">IDB Monitor</h2>
             <div class="sidebar-nav">
                 <a href="#" id="nav-home" class="nav-link active">🏠 Home</a>
                 <a href="#" id="nav-dashboard" class="nav-link">📊 Dashboard</a>
 
                 <div id="dashboard-sub-links" class="hidden"
-                    style="margin-left: 1.5rem; border-left: 2px solid #555; padding-left: 0.5rem; display: flex; flex-direction: column; gap: 0.3rem;">
+                    style="margin-left: 1.5rem; border-left: 2px solid hsl(var(--border)); padding-left: 0.5rem; display: flex; flex-direction: column; gap: 0.3rem;">
                     <a href="#filters" class="nav-link sub-link" style="font-size: 0.9rem; padding: 0.5rem;">🔍
                         Filters</a>
                     <a href="#kpis" class="nav-link sub-link" style="font-size: 0.9rem; padding: 0.5rem;">📈 KPIs</a>
@@ -86,13 +86,13 @@
                         <ul
                             style="list-style-type: none; padding-left: 0; display: flex; gap: 1rem; margin-top: 0.5rem;">
                             <li
-                                style="background: rgba(59, 130, 246, 0.1); padding: 0.5rem 1rem; border-radius: 6px; color: #3b82f6; font-size: 0.9rem;">
+                                style="background: hsl(var(--evaluate-bg, 199 89% 48% / 0.1)); padding: 0.5rem 1rem; border-radius: 6px; color: hsl(var(--primary)); font-size: 0.9rem;">
                                 ⚡ <span id="exec-count-poles">0</span> Poles</li>
                             <li
                                 style="background: rgba(249, 115, 22, 0.1); padding: 0.5rem 1rem; border-radius: 6px; color: #f97316; font-size: 0.9rem;">
                                 🏙️ <span id="exec-count-dts">0</span> DTs</li>
                             <li
-                                style="background: rgba(16, 185, 129, 0.1); padding: 0.5rem 1rem; border-radius: 6px; color: #10b981; font-size: 0.9rem;">
+                                style="background: hsl(var(--evaluate-bg, 162 85% 45% / 0.1)); padding: 0.5rem 1rem; border-radius: 6px; color: hsl(var(--accent)); font-size: 0.9rem;">
                                 🔌 <span id="exec-count-feeders">0</span> Feeders</li>
                         </ul>
                     </div>
@@ -105,8 +105,9 @@
                                 <div>
                                     <strong>Run Rate (Velocity)</strong>
                                     <p>Current: <span id="exec-avg-rate"
-                                            style="color: #fff; font-weight: bold;">0</span> assets/day. <span
-                                            style="color: #ef4444;">Target: >50 assets/day/user</span></p>
+                                            style="color: hsl(var(--foreground)); font-weight: bold;">0</span>
+                                        assets/day. <span style="color: hsl(var(--destructive));">Target: >50
+                                            assets/day/user</span></p>
                                 </div>
                             </li>
                             <li style="grid-column: span 2; width: 100%;">
@@ -166,13 +167,18 @@
 
                         <div class="view-toggle-wrapper" id="viewModeWrapper"
                             style="display: none; align-items: center; gap: 10px; margin-left: 10px; padding-left: 10px; border-left: 1px solid #555;">
-                            <span style="font-size: 0.85rem; color: #a0a0a0;">Field</span>
+                            <span style="font-size: 0.85rem; color: hsl(var(--muted-foreground));">Field</span>
                             <label class="switch">
                                 <input type="checkbox" id="viewModeToggle">
                                 <span class="slider round"></span>
                             </label>
-                            <span style="font-size: 0.85rem; color: #fff; font-weight: 600;">Total vs Actual</span>
+                            <span style="font-size: 0.85rem; color: hsl(var(--foreground)); font-weight: 600;">Total vs
+                                Actual</span>
                         </div>
+                        <button id="resetFiltersBtn" class="upload-btn"
+                            style="background-color: #10b981; border: 1px solid #10b981; color: white;">
+                            Reset All
+                        </button>
                         <button id="downloadExcel" class="upload-btn">
                             Download Excel
                         </button>
@@ -242,38 +248,281 @@
 
                 <!-- KPI Cards -->
                 <section class="kpi-section" id="kpis">
-                    <div class="kpi-card">
-                        <h3>Total Records Captured</h3>
-                        <div class="value" id="totalRecords">0</div>
+                    <!-- 1. Total Poles (Records) -->
+                    <div class="kpi-card-modern" id="card-records">
+                        <div class="kpi-border-top blue"></div>
+                        <div class="kpi-header">
+                            <span class="kpi-title">TOTAL POLES</span>
+                            <div class="kpi-icon-bg blue">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="kpi-body">
+                            <div class="kpi-stat">
+                                <span class="stat-label">Total (BOQ)</span>
+                                <span class="stat-value" id="kpi-boq-records">--</span>
+                            </div>
+                            <div class="kpi-stat align-right">
+                                <span class="stat-label">Actual</span>
+                                <span class="stat-value color-green" id="kpi-act-records">--</span>
+                            </div>
+                        </div>
+                        <div class="kpi-progress">
+                            <div class="progress-label">
+                                <span>Progress</span>
+                                <span id="kpi-prog-records">0%</span>
+                            </div>
+                            <div class="progress-track">
+                                <div class="progress-fill blue" id="kpi-bar-records" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="kpi-footer">
+                            <span class="remaining-text" id="kpi-rem-records">Remaining: --</span>
+                            <span class="footer-status color-blue">In Progress</span>
+                        </div>
                     </div>
-                    <div class="kpi-card">
-                        <h3>Active Users</h3>
-                        <div class="value" id="activeUsers">0</div>
+
+                    <!-- 2. Good Condition (Concrete) -->
+                    <div class="kpi-card-modern" id="card-concrete">
+                        <div class="kpi-border-top green"></div>
+                        <div class="kpi-header">
+                            <span class="kpi-title">GOOD COND. POLES</span>
+                            <div class="kpi-icon-bg green">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="kpi-body">
+                            <div class="kpi-stat">
+                                <span class="stat-label">Total (BOQ)</span>
+                                <span class="stat-value" id="kpi-boq-concrete">--</span>
+                            </div>
+                            <div class="kpi-stat align-right">
+                                <span class="stat-label">Actual</span>
+                                <span class="stat-value color-green" id="kpi-act-concrete">--</span>
+                            </div>
+                        </div>
+                        <div class="kpi-progress">
+                            <div class="progress-label">
+                                <span>Progress</span>
+                                <span id="kpi-prog-concrete">0%</span>
+                            </div>
+                            <div class="progress-track">
+                                <div class="progress-fill green" id="kpi-bar-concrete" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="kpi-footer">
+                            <span class="remaining-text" id="kpi-rem-concrete">Remaining: --</span>
+                            <span class="footer-status color-green">In Progress</span>
+                        </div>
                     </div>
-                    <div class="kpi-card">
-                        <h3>Avg Daily Run Rate</h3>
-                        <div class="value" id="avgRunRate">0</div>
+
+                    <!-- 3. Bad Poles (Wooden) -->
+                    <div class="kpi-card-modern" id="card-wooden">
+                        <div class="kpi-border-top orange"></div>
+                        <div class="kpi-header">
+                            <span class="kpi-title">BAD POLES (REPLACE)</span>
+                            <div class="kpi-icon-bg orange">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="kpi-body">
+                            <div class="kpi-stat">
+                                <span class="stat-label">Total (BOQ)</span>
+                                <span class="stat-value" id="kpi-boq-wooden">--</span>
+                            </div>
+                            <div class="kpi-stat align-right">
+                                <span class="stat-label">Actual</span>
+                                <span class="stat-value color-green" id="kpi-act-wooden">--</span>
+                            </div>
+                        </div>
+                        <div class="kpi-progress">
+                            <div class="progress-label">
+                                <span>Progress</span>
+                                <span id="kpi-prog-wooden">0%</span>
+                            </div>
+                            <div class="progress-track">
+                                <div class="progress-fill orange" id="kpi-bar-wooden" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="kpi-footer">
+                            <span class="remaining-text" id="kpi-rem-wooden">Remaining: --</span>
+                            <span class="footer-status color-orange">In Progress</span>
+                        </div>
                     </div>
-                    <div class="kpi-card">
-                        <h3>Total Buildings Connected</h3>
-                        <div class="value" id="totalBuildings">0</div>
+
+                    <!-- 4. New Poles (Active Users Slot) -->
+                    <div class="kpi-card-modern" id="card-users">
+                        <div class="kpi-border-top purple"></div>
+                        <div class="kpi-header">
+                            <span class="kpi-title" id="kpi-title-users">NEW POLES (INSTALL)</span>
+                            <div class="kpi-icon-bg purple">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <circle cx="12" cy="12" r="6"></circle>
+                                    <circle cx="12" cy="12" r="2"></circle>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="kpi-body">
+                            <div class="kpi-stat">
+                                <span class="stat-label">Total (BOQ)</span>
+                                <span class="stat-value" id="kpi-boq-users">--</span>
+                            </div>
+                            <div class="kpi-stat align-right">
+                                <span class="stat-label">Actual</span>
+                                <span class="stat-value color-green" id="kpi-act-users">--</span>
+                            </div>
+                        </div>
+                        <div class="kpi-progress">
+                            <div class="progress-label">
+                                <span>Progress</span>
+                                <span id="kpi-prog-users">0%</span>
+                            </div>
+                            <div class="progress-track">
+                                <div class="progress-fill purple" id="kpi-bar-users" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="kpi-footer">
+                            <span class="remaining-text" id="kpi-rem-users">Remaining: --</span>
+                            <span class="footer-status color-blue">In Progress</span>
+                        </div>
                     </div>
-                    <div class="kpi-card">
-                        <h3>Total DTs Captured</h3>
-                        <div class="value" id="totalDTs">0</div>
+
+                    <!-- 5. Feeders -->
+                    <div class="kpi-card-modern" id="card-feeders">
+                        <div class="kpi-border-top cyan"></div>
+                        <div class="kpi-header">
+                            <span class="kpi-title">TOTAL FEEDERS</span>
+                            <div class="kpi-icon-bg cyan">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="kpi-body">
+                            <div class="kpi-stat">
+                                <span class="stat-label">Total (BOQ)</span>
+                                <span class="stat-value" id="kpi-boq-feeders">--</span>
+                            </div>
+                            <div class="kpi-stat align-right">
+                                <span class="stat-label">Actual</span>
+                                <span class="stat-value color-green" id="kpi-act-feeders">--</span>
+                            </div>
+                        </div>
+                        <div class="kpi-progress">
+                            <div class="progress-label">
+                                <span>Progress</span>
+                                <span id="kpi-prog-feeders">0%</span>
+                            </div>
+                            <div class="progress-track">
+                                <div class="progress-fill bg-cyan-500" style="background-color: #06b6d4; width: 0%"
+                                    id="kpi-bar-feeders"></div>
+                            </div>
+                        </div>
+                        <div class="kpi-footer">
+                            <span class="remaining-text" id="kpi-rem-feeders">Remaining: --</span>
+                            <span class="footer-status color-blue">In Progress</span>
+                        </div>
                     </div>
-                    <div class="kpi-card">
-                        <h3>Total Feeders Captured</h3>
-                        <div class="value" id="totalFeeders">0</div>
+
+                    <!-- 6. DTs -->
+                    <div class="kpi-card-modern" id="card-dts">
+                        <div class="kpi-border-top blue"></div>
+                        <div class="kpi-header">
+                            <span class="kpi-title">TOTAL DTS</span>
+                            <div class="kpi-icon-bg blue">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="kpi-body">
+                            <div class="kpi-stat">
+                                <span class="stat-label">Total (BOQ)</span>
+                                <span class="stat-value" id="kpi-boq-dts">--</span>
+                            </div>
+                            <div class="kpi-stat align-right">
+                                <span class="stat-label">Actual</span>
+                                <span class="stat-value color-green" id="kpi-act-dts">--</span>
+                            </div>
+                        </div>
+                        <div class="kpi-progress">
+                            <div class="progress-label">
+                                <span>Progress</span>
+                                <span id="kpi-prog-dts">0%</span>
+                            </div>
+                            <div class="progress-track">
+                                <div class="progress-fill blue" id="kpi-bar-dts" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="kpi-footer">
+                            <span class="remaining-text" id="kpi-rem-dts">Remaining: --</span>
+                            <span class="footer-status color-blue">In Progress</span>
+                        </div>
                     </div>
-                    <div class="kpi-card">
-                        <h3>Total Concrete Poles</h3>
-                        <div class="value" id="totalConcrete">0</div>
+
+                    <!-- 7. Buildings -->
+                    <div class="kpi-card-modern" id="card-buildings">
+                        <div class="kpi-border-top purple"></div>
+                        <div class="kpi-header">
+                            <span class="kpi-title">TOTAL BUILDINGS</span>
+                            <div class="kpi-icon-bg purple">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <path d="M3 21h18M5 21V7l8-4 8 4v14M8 21v-2a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="kpi-body">
+                            <div class="kpi-stat">
+                                <span class="stat-label">Total (BOQ)</span>
+                                <span class="stat-value" id="kpi-boq-buildings">--</span>
+                            </div>
+                            <div class="kpi-stat align-right">
+                                <span class="stat-label">Actual</span>
+                                <span class="stat-value color-green" id="kpi-act-buildings">--</span>
+                            </div>
+                        </div>
+                        <div class="kpi-progress">
+                            <div class="progress-label">
+                                <span>Progress</span>
+                                <span id="kpi-prog-buildings">0%</span>
+                            </div>
+                            <div class="progress-track">
+                                <div class="progress-fill purple" id="kpi-bar-buildings" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="kpi-footer">
+                            <span class="remaining-text" id="kpi-rem-buildings">Remaining: --</span>
+                            <span class="footer-status color-blue">In Progress</span>
+                        </div>
                     </div>
-                    <div class="kpi-card">
-                        <h3>Total Wooden Poles</h3>
-                        <div class="value" id="totalWooden">0</div>
-                    </div>
+
+                    <!-- Keeping placeholders for others logic if needed, but styling implicitly handles them -->
+
                 </section>
 
                 <!-- Map Section & Key Insights -->
@@ -288,7 +537,7 @@
                             </div>
                             <div class="map-legend" style="margin-top: 10px; font-size: 0.9rem; color: #a0a0a0;">
                                 <span style="color: #0EA5E9; margin-right: 15px;">● ETC Workforce</span>
-                                <span style="color: #EF4444;">● Jesom Technology</span>
+                                <span style="color: #f97316;">● Jesom Technology</span>
                             </div>
                         </div>
 
@@ -378,9 +627,27 @@
                     <div class="table-controls"
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
                         <div id="tableInfo" style="color: #a0a0a0; font-size: 0.9rem;">Showing 0 of 0 DTs</div>
-                        <div class="search-wrapper" style="display: flex; gap: 10px;">
-                            <input type="text" id="dtSearchInput" placeholder="Search DT / User..."
-                                style="padding: 0.5rem; border-radius: 6px; border: 1px solid #555; background: #222; color: #fff; width: 250px;">
+                        <div class="search-wrapper" style="display: flex; gap: 10px; position: relative;">
+                            <!-- Column Filter Dropdown -->
+                            <div class="column-filter-container">
+                                <button id="columnFilterBtn" class="filter-btn">
+                                    <span>Select Columns</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round">
+                                        <polygon points="6 9 12 15 18 9"></polygon>
+                                    </svg>
+                                </button>
+                                <div id="columnFilterMenu" class="column-menu" style="display: none;">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+
+                            <!-- Existing Search (Kept for functionality, but styled to fit) -->
+                            <input type="text" id="dtSearchInput" placeholder="Search Data..."
+                                style="padding: 0.5rem; border-radius: 6px; border: 1px solid #334155; background: #1e1e24; color: #fff; width: 200px;"
+                                autocomplete="off">
+                            <div id="searchSuggestions" class="search-suggestions"></div>
                         </div>
                     </div>
                     <div class="chart-container wide" style="height: auto; min-height: 400px; overflow-x: auto;">
@@ -388,27 +655,31 @@
                         <table id="dtTable" class="data-table">
                             <thead>
                                 <tr>
-                                    <th>#</th>
-                                    <th>DT Name</th>
-                                    <th>Feeder Name</th>
-                                    <th>BU</th>
-                                    <th>Undertaking</th>
-                                    <th>Vendor</th>
-                                    <!-- <th>Field Officers</th>  Too wide? User asked for it. -->
-                                    <th>Field Officers</th>
-                                    <th>Total (BOQ)</th>
-                                    <th>Actual</th>
-                                    <th>Remaining</th>
-                                    <th>Concrete</th>
-                                    <th>Wooden</th>
-                                    <th>Progress</th>
-                                    <th>Status</th>
+                                    <th class="col-index">#</th>
+                                    <th class="col-dtName">DT Name</th>
+                                    <th class="col-feeder">Feeder Name</th>
+                                    <th class="col-bu">BU</th>
+                                    <th class="col-undertaking">Undertaking</th>
+                                    <th class="col-vendor">Vendor</th>
+                                    <th class="col-users">Field Officers</th>
+                                    <th class="col-boqTotal">Total (BOQ)</th>
+                                    <th class="col-actualTotal">Actual</th>
+                                    <th class="col-remaining">Remaining</th>
+                                    <th class="col-concrete">Concrete</th>
+                                    <th class="col-wooden">Wooden</th>
+                                    <th class="col-progress">Progress</th>
+                                    <th class="col-status">Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <!-- Rows will be populated by JS -->
                             </tbody>
                         </table>
+                    </div>
+                    <!-- Pagination Controls -->
+                    <div id="paginationControls" class="pagination-container"
+                        style="display: flex; justify-content: center; margin-top: 1rem; gap: 0.5rem;">
+                        <!-- Buttons added by JS -->
                     </div>
                 </section>
 

@@ -3,6 +3,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let filteredData = [];
     let boqData = []; // Store BOQ Data
     let viewMode = 'field'; // 'field' or 'boq'
+    let currentPage = 1;
+    const rowsPerPage = 25;
     let map = null;
     let markersLayer = null;
 
@@ -765,110 +767,94 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     function updateKPIs() {
-        if (viewMode === 'boq') {
-            const varianceData = calculateVariance();
+        // Helper to formatting numbers
+        const fmt = n => n ? n.toLocaleString() : '0';
 
-            // 1. Total Feeders (Actual / BOQ)
-            const actualFeeders = new Set(filteredData.map(d => d.Feeder)).size;
-            const boqFeeders = new Set(boqData.map(d => d["FEEDER NAME"])).size;
-            const feederPct = boqFeeders ? ((actualFeeders / boqFeeders) * 100).toFixed(1) : 0;
+        // 1. Calculate Metrics
 
-            document.querySelector('#totalFeeders').parentNode.querySelector('h3').textContent = 'Feeders Completion';
-            document.getElementById('totalFeeders').innerHTML = `<span style="font-size:0.8em">${actualFeeders} / ${boqFeeders}</span> <br><span style="color:${feederPct >= 100 ? '#10b981' : '#f59e0b'}">(${feederPct}%)</span>`;
+        // --- A. Records (Poles) ---
+        const boqRecords = (viewMode === 'boq' && boqData.length)
+            ? boqData.reduce((sum, d) => sum + (parseInt(d["POLES Grand Total"]) || 0), 0)
+            : 0;
+        const actRecords = filteredData.length;
+        updateModernCard('records', boqRecords, actRecords);
 
-            // 2. Total DTs (Actual / BOQ)
-            const actualDTs = new Set(filteredData.map(d => d["DT Name"] || d["DT_Name"])).size;
-            const boqDTs = new Set(boqData.map(d => d["DT NAME"])).size;
-            const dtPct = boqDTs ? ((actualDTs / boqDTs) * 100).toFixed(1) : 0;
+        // --- B. Good Poles (Concrete/Good) ---
+        const boqGood = (viewMode === 'boq' && boqData.length)
+            ? boqData.reduce((sum, d) => sum + (parseInt(d["GOOD"]) || 0), 0)
+            : 0;
+        const actGood = filteredData.filter(d => (d.Issue_Type === 'Good Condition')).length;
+        updateModernCard('concrete', boqGood, actGood);
 
-            document.querySelector('#totalDTs').parentNode.querySelector('h3').textContent = 'DTs Completion';
-            document.getElementById('totalDTs').innerHTML = `<span style="font-size:0.8em">${actualDTs} / ${boqDTs}</span> <br><span style="color:${dtPct >= 100 ? '#10b981' : '#f59e0b'}">(${dtPct}%)</span>`;
+        // --- C. Bad Poles (Wooden/Replace) ---
+        const boqBad = (viewMode === 'boq' && boqData.length)
+            ? boqData.reduce((sum, d) => sum + (parseInt(d["BAD"]) || 0), 0)
+            : 0;
+        const actBad = filteredData.filter(d => (d.Issue_Type !== 'Good Condition')).length;
+        updateModernCard('wooden', boqBad, actBad);
 
-            // 3. Poles (Actual / BOQ) - Hijack 'Total Records'
-            const actualPoles = filteredData.length;
-            const boqPoles = boqData.reduce((sum, d) => sum + (parseInt(d["POLES Grand Total"]) || 0), 0);
-            const polePct = boqPoles ? ((actualPoles / boqPoles) * 100).toFixed(1) : 0;
+        // --- D. New Poles (Install) ---
+        const boqNew = (viewMode === 'boq' && boqData.length)
+            ? boqData.reduce((sum, d) => sum + (parseInt(d["NEW POLE"]) || 0), 0)
+            : 0;
+        // Logic for Actual New Poles: Check Pole_Type or Issue_Type for 'New'
+        // If not found, default to 0 to avoid misleading data
+        const actNew = filteredData.filter(d =>
+            (d.Pole_Type && d.Pole_Type.toLowerCase().includes('new')) ||
+            (d.Issue_Type && d.Issue_Type.toLowerCase().includes('new'))
+        ).length;
+        updateModernCard('users', boqNew, actNew);
 
-            document.querySelector('#totalRecords').parentNode.querySelector('h3').textContent = 'Total Poles Completion';
-            document.getElementById('totalRecords').innerHTML = `<span style="font-size:0.8em">${actualPoles} / ${boqPoles}</span> <br><span style="color:${polePct >= 100 ? '#10b981' : '#f59e0b'}">(${polePct}%)</span>`;
+        // --- E. Feeders ---
+        const boqFeeders = (viewMode === 'boq' && boqData.length) ? new Set(boqData.map(d => d["FEEDER NAME"])).size : 0;
+        const actFeeders = new Set(filteredData.map(d => d.Feeder)).size;
+        updateModernCard('feeders', boqFeeders, actFeeders);
 
-            // 4. Good Poles (Condition)
-            // Field: Issue_Type == 'Good Condition' (or based on logic)
-            const fieldGood = filteredData.filter(d => d.Issue_Type === 'Good Condition').length;
-            const boqGood = boqData.reduce((sum, d) => sum + (parseInt(d["GOOD"]) || 0), 0);
+        // --- F. DTs ---
+        const boqDTs = (viewMode === 'boq' && boqData.length) ? new Set(boqData.map(d => d["DT NAME"])).size : 0;
+        const actDTs = new Set(filteredData.map(d => d["DT Name"] || d["DT_Name"])).size;
+        updateModernCard('dts', boqDTs, actDTs);
 
-            document.querySelector('#totalConcrete').parentNode.querySelector('h3').textContent = 'Good Poles (T vs A)';
-            document.getElementById('totalConcrete').innerHTML = `<span style="color:#a0a0a0">Total: ${boqGood}</span> <br> <span style="color:#10b981">Act: ${fieldGood}</span>`;
+        // --- G. Buildings ---
+        // BOQ for buildings might not exist, defaulting to 0 for now.
+        const boqBuildings = 0;
+        const actBuildings = filteredData.reduce((sum, item) => sum + (parseInt(item["No of Buildings Connected to the Pole"]) || 0), 0);
+        updateModernCard('buildings', boqBuildings, actBuildings);
+    }
 
-            // 5. Bad Poles
-            // 5. Bad Poles
-            const fieldBad = filteredData.filter(d => d.Issue_Type !== 'Good Condition').length;
-            const boqBad = boqData.reduce((sum, d) => sum + (parseInt(d["BAD"]) || 0), 0);
+    function updateModernCard(suffix, boqVal, actVal) {
+        const elBoq = document.getElementById(`kpi-boq-${suffix}`);
+        const elAct = document.getElementById(`kpi-act-${suffix}`);
+        const elProg = document.getElementById(`kpi-prog-${suffix}`);
+        const elBar = document.getElementById(`kpi-bar-${suffix}`);
+        const elRem = document.getElementById(`kpi-rem-${suffix}`);
 
-            document.querySelector('#totalWooden').parentNode.querySelector('h3').textContent = 'Bad Poles (T vs A)';
-            document.getElementById('totalWooden').innerHTML = `<span style="color:#a0a0a0">Total: ${boqBad}</span> <br> <span style="color:#ef4444">Act: ${fieldBad}</span>`;
+        if (!elAct) return;
 
-            // 6. New Poles (Added to fix total discrepancy)
-            const boqNew = boqData.reduce((sum, d) => sum + (parseInt(d["NEW POLE"]) || 0), 0);
+        // Set Values
+        if (elBoq) elBoq.textContent = (viewMode === 'boq' && boqData.length) ? boqVal.toLocaleString() : '-';
+        elAct.textContent = actVal.toLocaleString();
 
-            document.querySelector('#activeUsers').parentNode.querySelector('h3').textContent = 'New Poles (Total)';
-            document.getElementById('activeUsers').innerHTML = `<span style="color:#a0a0a0">Total: ${boqNew}</span> <br> <span style="color:#8b5cf6; font-size: 0.6em;">(Proposed)</span>`;
+        // Calculate Progress
+        let pct = 0;
+        if (viewMode === 'boq' && boqVal > 0) {
+            pct = (actVal / boqVal) * 100;
+        }
 
-            // Reset other cards or hide?
-            document.getElementById('avgRunRate').textContent = '-';
-            document.getElementById('totalBuildings').textContent = '-';
+        const displayPct = pct.toFixed(1) + '%';
+        const barWidth = Math.min(pct, 100) + '%';
 
-        } else {
-            // Reset Titles
-            document.querySelector('#totalFeeders').parentNode.querySelector('h3').textContent = 'Total Feeders Captured';
-            document.querySelector('#totalDTs').parentNode.querySelector('h3').textContent = 'Total DTs Captured';
-            document.querySelector('#totalRecords').parentNode.querySelector('h3').textContent = 'Total Records Captured';
-            document.querySelector('#totalConcrete').parentNode.querySelector('h3').textContent = 'Total Concrete Poles';
-            document.querySelector('#totalWooden').parentNode.querySelector('h3').textContent = 'Total Wooden Poles';
-            document.querySelector('#activeUsers').parentNode.querySelector('h3').textContent = 'Active Users';
+        if (elProg) elProg.textContent = displayPct;
+        if (elBar) elBar.style.width = barWidth;
 
-            const totalRecords = filteredData.length;
-            const activeUsers = new Set(filteredData.map(d => d.User)).size;
-
-            // Calculate Avg Daily Run Rate
-            const dates = new Set(filteredData.map(d => d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : ''));
-            const daysWorked = dates.size || 1;
-            const avgRunRate = (totalRecords / daysWorked).toFixed(1);
-
-            const totalBuildings = filteredData.reduce((sum, item) => sum + (parseInt(item["No of Buildings Connected to the Pole"]) || 0), 0);
-
-            // Calculate Unique DTs and Feeders
-            const uniqueDTs = new Set(filteredData.map(d => d["DT Name"]).filter(Boolean)).size;
-            const uniqueFeeders = new Set(filteredData.map(d => d["Feeder"]).filter(Boolean)).size;
-
-            // Count Concrete and Wooden Poles
-            let concrete = 0;
-            let wooden = 0;
-            filteredData.forEach(d => {
-                // Check possible keys for Material
-                const mat = String(d["Pole Material"] || d["Material"] || d["Pole_Material"] || "").toLowerCase();
-                const type = String(d["Type of Pole"] || "").toLowerCase();
-
-                if (mat.includes('concrete') || type.includes('concrete')) concrete++;
-                if (mat.includes('wood') || type.includes('wood')) wooden++;
-            });
-
-            document.getElementById('totalRecords').textContent = totalRecords;
-            document.getElementById('activeUsers').textContent = activeUsers;
-            document.getElementById('avgRunRate').textContent = avgRunRate;
-            document.getElementById('totalBuildings').textContent = totalBuildings;
-
-            const totalDTsEl = document.getElementById('totalDTs');
-            if (totalDTsEl) totalDTsEl.textContent = uniqueDTs;
-
-            const totalFeedersEl = document.getElementById('totalFeeders');
-            if (totalFeedersEl) totalFeedersEl.textContent = uniqueFeeders;
-
-            const concEl = document.getElementById('totalConcrete');
-            if (concEl) concEl.textContent = concrete;
-
-            const woodEl = document.getElementById('totalWooden');
-            if (woodEl) woodEl.textContent = wooden;
+        // Remaining
+        if (elRem) {
+            if (viewMode === 'boq' && boqVal > 0) {
+                const rem = boqVal - actVal;
+                elRem.textContent = `Remaining: ${Math.max(0, rem).toLocaleString()}`;
+            } else {
+                elRem.textContent = 'Remaining: -';
+            }
         }
     }
 
@@ -894,7 +880,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const colors = xUsernames.map(user => {
             const vendor = userVendors[user];
             if (vendor === 'ETC Workforce') return '#0EA5E9'; // Blue
-            if (vendor === 'Jesom Technology') return '#EF4444'; // Red
+            if (vendor === 'Jesom Technology') return '#f97316'; // Orange
             return '#a0a0a0'; // Grey for others
         });
 
@@ -910,7 +896,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const layout = {
             paper_bgcolor: 'rgba(0,0,0,0)',
             plot_bgcolor: 'rgba(0,0,0,0)',
-            font: { color: '#e4e5e7' },
+            font: { color: '#fafafa' },
             margin: { t: 30, b: 120, l: 50, r: 20 }, // INCREASE BOTTOM MARGIN for names
             xaxis: { title: '', tickangle: -45 },
             yaxis: { title: 'Records Captured' },
@@ -920,9 +906,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     xref: 'paper', yref: 'paper',
                     x: 1, y: 1,
                     xanchor: 'right', yanchor: 'bottom',
-                    text: '<span style="color:#0EA5E9">■</span> ETC Workforce  <span style="color:#EF4444">■</span> Jesom Technology',
+                    text: '<span style="color:#0EA5E9">■</span> ETC Workforce  <span style="color:#f97316">■</span> Jesom Technology',
                     showarrow: false,
-                    font: { size: 12, color: '#e4e5e7' }
+                    font: { size: 12, color: '#fafafa' }
                 }
             ]
         };
@@ -965,7 +951,7 @@ document.addEventListener('DOMContentLoaded', () => {
             text: yETC.map(String),
             textposition: 'top center',
             fill: 'tozeroy',
-            line: { color: '#3b82f6' }, // Blue
+            line: { color: '#0EA5E9' }, // Blue
             marker: { size: 6 }
         };
 
@@ -985,8 +971,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const layout = {
             background_color: '#333333', // Dark background for chart area per image appearance (optional but sticking to theme first)
             paper_bgcolor: 'rgba(0,0,0,0)',
-            plot_bgcolor: 'rgba(255,255,255,0.05)', // Slightly lighter plot area
-            font: { color: '#e4e5e7' },
+            plot_bgcolor: 'rgba(255,255,255,0.02)', // Slightly lighter plot area
+            font: { color: '#fafafa' },
             xaxis: {
                 title: '',
                 tickformat: '%b %d, %Y', // e.g. Jan 30, 2026
@@ -1176,7 +1162,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         const blueColor = '#0EA5E9'; // e.g. bright blue
-        const redColor = '#EF4444'; // e.g. bright red
+        const redColor = '#f97316'; // Jesom Orange (formerly red)
 
         // --- Chart 1: Total Records ---
         const traceTotal = {
@@ -1194,9 +1180,9 @@ document.addEventListener('DOMContentLoaded', () => {
             title: { text: 'Total Records by Vendor', font: { color: '#e4e5e7', size: 16 } },
             paper_bgcolor: 'rgba(0,0,0,0)',
             plot_bgcolor: 'rgba(0,0,0,0)',
-            font: { color: '#e4e5e7' },
+            font: { color: '#fafafa' },
             xaxis: { title: '' },
-            yaxis: { title: '', showgrid: true, gridcolor: '#373a40' },
+            yaxis: { title: '', showgrid: true, gridcolor: '#334155' },
             margin: { t: 40, b: 40, l: 40, r: 20 }
         };
 
@@ -1233,9 +1219,9 @@ document.addEventListener('DOMContentLoaded', () => {
             title: { text: 'Avg Daily Run Rate (Per Officer)', font: { color: '#e4e5e7', size: 16 } },
             paper_bgcolor: 'rgba(0,0,0,0)',
             plot_bgcolor: 'rgba(0,0,0,0)',
-            font: { color: '#e4e5e7' },
+            font: { color: '#fafafa' },
             xaxis: { title: '' },
-            yaxis: { title: '', showgrid: true, gridcolor: '#373a40', range: [0, Math.max(60, Math.max(...runRates) * 1.1)] }, // Ensure grid scale fits target line
+            yaxis: { title: '', showgrid: true, gridcolor: '#334155', range: [0, Math.max(60, Math.max(...runRates) * 1.1)] }, // Ensure grid scale fits target line
             margin: { t: 40, b: 40, l: 40, r: 20 },
             shapes: [targetLine],
             annotations: [{
@@ -1252,6 +1238,7 @@ document.addEventListener('DOMContentLoaded', () => {
         Plotly.newPlot('vendorRunRateChart', [traceRunRate], layoutRunRate, { responsive: true });
     }
 
+
     // 6. Detailed DT Analysis Table (Enhanced)
     function renderDTTable() {
         const tbody = document.querySelector('#dtTable tbody');
@@ -1264,12 +1251,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = getEnhancedDTData();
 
         // 2. Filter by Search Input
+        // 2. Filter by Search Input (Interactive)
         const filtered = data.filter(item => {
             if (!searchVal) return true;
             return (
                 (item.dtName || '').toLowerCase().includes(searchVal) ||
                 (item.vendor || '').toLowerCase().includes(searchVal) ||
-                item.users.some(u => (userFullNames[u] || u).toLowerCase().includes(searchVal))
+                (item.feeder || '').toLowerCase().includes(searchVal) ||
+                (item.bu || '').toLowerCase().includes(searchVal) ||
+                (item.undertaking || '').toLowerCase().includes(searchVal) ||
+                item.users.some(u => String(userFullNames[u] || u || '').toLowerCase().includes(searchVal))
             );
         });
 
@@ -1277,8 +1268,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const infoEl = document.getElementById('tableInfo');
         if (infoEl) infoEl.textContent = `Showing ${filtered.length} of ${data.length} DTs`;
 
-        // 4. Render Rows
-        filtered.slice(0, 100).forEach((row, index) => {
+        // 4. Pagination Logic
+        const totalItems = filtered.length;
+        const totalPages = Math.ceil(totalItems / rowsPerPage);
+
+        // Adjust currentPage if out of bounds
+        if (currentPage > totalPages && totalPages > 0) currentPage = totalPages;
+        if (currentPage < 1 && totalPages > 0) currentPage = 1; // Should happen?
+        if (totalPages === 0) currentPage = 1; // If no items, reset to page 1
+
+        const startIndex = (currentPage - 1) * rowsPerPage;
+        const endIndex = startIndex + rowsPerPage;
+        const paginatedData = filtered.slice(startIndex, endIndex);
+
+        // 5. Render Rows
+        paginatedData.forEach((row, index) => {
             const tr = document.createElement('tr');
 
             // Vendor Tag
@@ -1304,32 +1308,118 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // User Names
             const userNames = row.users.map(u => userFullNames[u] || u).join(', ');
+            // Absolute index for numbering
+            const absIndex = startIndex + index + 1;
 
             tr.innerHTML = `
-                <td>${index + 1}</td>
-                <td style="font-weight: 500; color: #fff;">${row.dtName}</td>
-                <td>${row.feeder}</td>
-                <td>${row.bu}</td>
-                <td>${row.undertaking}</td>
-                <td><span class="vendor-tag ${vendorClass}">${row.vendor}</span></td>
-                <td style="font-size: 0.85em; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${userNames}">${userNames}</td>
-                <td style="text-align: center; font-weight: bold; color: #0EA5E9;">${row.boqTotal}</td>
-                <td style="text-align: center;">${row.actualTotal}</td>
-                <td style="text-align: center; color: #a0a0a0;">${Math.max(0, row.boqTotal - row.actualTotal)}</td>
-                <td style="text-align: center;">${row.concrete}</td>
-                <td style="text-align: center;">${row.wooden}</td>
-                <td style="width: 100px;">
-                    <div style="display: flex; align-items: center; gap: 5px;">
-                        <div style="flex-grow: 1; height: 6px; background: #333; border-radius: 3px; overflow: hidden;">
+                <td class="col-index" style="text-align: center;">${absIndex}</td>
+                <td class="col-dtName" style="font-weight: 500; color: #fff;">${row.dtName}</td>
+                <td class="col-feeder">${row.feeder}</td>
+                <td class="col-bu">${row.bu}</td>
+                <td class="col-undertaking">${row.undertaking}</td>
+                <td class="col-vendor"><span class="vendor-tag ${vendorClass}">${row.vendor}</span></td>
+                <td class="col-users" style="max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${userNames}">${userNames}</td>
+                <td class="col-boqTotal" style="text-align: center; font-weight: bold; color: #0EA5E9;">${row.boqTotal}</td>
+                <td class="col-actualTotal" style="text-align: center;">${row.actualTotal}</td>
+                <td class="col-remaining" style="text-align: center; color: #a0a0a0;">${Math.max(0, row.boqTotal - row.actualTotal)}</td>
+                <td class="col-concrete" style="text-align: center;">${row.concrete}</td>
+                <td class="col-wooden" style="text-align: center;">${row.wooden}</td>
+                <td class="col-progress" style="width: 70px;">
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <div style="flex-grow: 1; height: 4px; background: #333; border-radius: 2px; overflow: hidden;">
                             <div style="width: ${Math.min(100, progress)}%; height: 100%; background: ${statusColor};"></div>
                         </div>
                         <span style="font-size: 0.8em; color: ${statusColor};">${progress.toFixed(0)}%</span>
                     </div>
                 </td>
-                <td><span style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; background: ${statusColor}20; color: ${statusColor}; border: 1px solid ${statusColor}40;">${status}</span></td>
+                <td class="col-status"><span style="font-size: 0.8em; padding: 1px 6px; border-radius: 8px; background: ${statusColor}20; color: ${statusColor}; border: 1px solid ${statusColor}40; white-space: nowrap;">${status}</span></td>
             `;
             tbody.appendChild(tr);
         });
+
+        // 6. Render Pagination Controls
+        renderPaginationControls(filtered.length);
+    }
+
+    function renderPaginationControls(totalItems) {
+        const container = document.getElementById('paginationControls');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const totalPages = Math.ceil(totalItems / rowsPerPage);
+        if (totalPages <= 1) return;
+
+        const createBtn = (text, page, isActive = false, isDisabled = false) => {
+            const btn = document.createElement('button');
+            btn.className = `page-btn ${isActive ? 'active' : ''}`;
+            btn.textContent = text;
+            if (isDisabled) btn.disabled = true;
+            else {
+                btn.onclick = () => {
+                    currentPage = page;
+                    renderDTTable();
+                };
+            }
+            return btn;
+        };
+
+        // Prev Button
+        container.appendChild(createBtn('<', currentPage - 1, false, currentPage === 1));
+
+        // Page Range Logic (Show up to 6 pages)
+        const maxVisible = 6;
+        let startPage = 1;
+        let endPage = Math.min(totalPages, maxVisible);
+
+        if (currentPage > 3 && totalPages > maxVisible) {
+            // Center user in the window if possible
+            startPage = Math.max(1, currentPage - 2);
+            endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+            // Adjust start if end is capped
+            if (endPage === totalPages) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            container.appendChild(createBtn(i, i, i === currentPage));
+        }
+
+        // Next Button
+        container.appendChild(createBtn('>', currentPage + 1, false, currentPage === totalPages));
+    }
+
+    function resetFilters() {
+        // 1. Reset View Mode first
+        viewMode = 'field';
+        const toggle = document.getElementById('viewModeToggle');
+        if (toggle) toggle.checked = false;
+
+        // 2. Clear Search Input
+        const searchInput = document.getElementById('dtSearchInput');
+        if (searchInput) searchInput.value = '';
+
+        // 3. Reset Pagination
+        currentPage = 1;
+
+        // 4. Reset Filters UI & Data
+        // Re-populate from scratch (this resets options to global state)
+        populateFilters();
+
+        // Ensure all selects are set to 'All' (populateFilters might do this implicitly, but let's be sure)
+        const filterIds = [
+            'vendorFilter', 'buFilter', 'utFilter', 'userFilter',
+            'feederFilter', 'dtFilter', 'upriserFilter', 'materialFilter', 'dateFilter'
+        ];
+
+        filterIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = 'All';
+        });
+
+        // 5. Update Dashboard (This will rebuild filteredData from globalData based on the 'All' selections)
+        applyFilters();
     }
 
     function getEnhancedDTData() {
@@ -2063,14 +2153,179 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- Event Listeners ---
+    const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+    if (resetFiltersBtn) {
+        resetFiltersBtn.addEventListener('click', resetFilters);
+    }
+
+    const dtSearchInput = document.getElementById('dtSearchInput');
+    if (dtSearchInput) {
+        dtSearchInput.addEventListener('input', function () {
+            currentPage = 1;
+            renderDTTable();
+            handleSearchInput(this.value);
+        });
+
+        dtSearchInput.addEventListener('blur', () => {
+            // Delay hiding to allow click event on suggestion to fire
+            setTimeout(() => {
+                const list = document.getElementById('searchSuggestions');
+                if (list) list.style.display = 'none';
+            }, 200);
+        });
+
+        dtSearchInput.addEventListener('focus', function () {
+            if (this.value.trim().length > 0) handleSearchInput(this.value);
+        });
+    }
+
+    // --- Search Intelligence ---
+    function handleSearchInput(val) {
+        const list = document.getElementById('searchSuggestions');
+        if (!list) return;
+
+        const query = val.toLowerCase().trim();
+        if (query.length === 0) {
+            list.style.display = 'none';
+            return;
+        }
+
+        const suggestions = getSearchSuggestions(query);
+        if (suggestions.length === 0) {
+            list.style.display = 'none';
+            return;
+        }
+
+        list.innerHTML = '';
+        suggestions.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'search-suggestion-item';
+            div.innerHTML = `<span>${item.text}</span> <span class="suggestion-type">${item.type}</span>`;
+            div.onclick = () => {
+                applySearchSuggestion(item.text);
+            };
+            list.appendChild(div);
+        });
+        list.style.display = 'flex';
+    }
+
+    function getSearchSuggestions(query) {
+        // Search across filteredData
+        const maxResults = 8;
+        const results = [];
+        const seen = new Set();
+
+        for (const row of filteredData) {
+            if (results.length >= maxResults) break;
+
+            // Helper to add
+            const add = (text, type) => {
+                if (results.length >= maxResults) return;
+                if (text && text.toLowerCase().includes(query) && !seen.has(text)) {
+                    seen.add(text);
+                    results.push({ text, type });
+                }
+            };
+
+            add(row.dtName, 'DT');
+            add(row.feeder, 'Feeder');
+            add(row.vendor, 'Vendor');
+            if (row.users) row.users.forEach(u => add(userFullNames[u] || u, 'User'));
+        }
+        return results;
+    }
+
+    function applySearchSuggestion(text) {
+        const input = document.getElementById('dtSearchInput');
+        if (input) {
+            input.value = text;
+            input.dispatchEvent(new Event('input'));
+            const list = document.getElementById('searchSuggestions');
+            if (list) list.style.display = 'none';
+        }
+    }
+
+    // --- Column Visibility Logic ---
+    const columnConfig = [
+        { id: 'col-index', label: '#', checked: true },
+        { id: 'col-dtName', label: 'DT Name', checked: true },
+        { id: 'col-feeder', label: 'Feeder', checked: true },
+        { id: 'col-bu', label: 'BU', checked: true },
+        { id: 'col-undertaking', label: 'Undertaking', checked: true },
+        { id: 'col-vendor', label: 'Vendor', checked: true },
+        { id: 'col-users', label: 'Field Officers', checked: true },
+        { id: 'col-boqTotal', label: 'Total (BOQ)', checked: true },
+        { id: 'col-actualTotal', label: 'Actual', checked: true },
+        { id: 'col-remaining', label: 'Remaining', checked: true },
+        { id: 'col-concrete', label: 'Concrete', checked: true },
+        { id: 'col-wooden', label: 'Wooden', checked: true },
+        { id: 'col-progress', label: 'Progress', checked: true },
+        { id: 'col-status', label: 'Status', checked: true }
+    ];
+
+    function initColumnFilter() {
+        const btn = document.getElementById('columnFilterBtn');
+        const menu = document.getElementById('columnFilterMenu');
+        if (!btn || !menu) return;
+
+        // Toggle Menu
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
+        });
+
+        // Close when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!btn.contains(e.target) && !menu.contains(e.target)) {
+                menu.style.display = 'none';
+            }
+        });
+
+        // Populate Menu
+        menu.innerHTML = '';
+        columnConfig.forEach(col => {
+            const item = document.createElement('label');
+            item.className = 'col-check-item';
+
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = col.checked;
+            cb.dataset.colId = col.id;
+
+            cb.addEventListener('change', () => {
+                col.checked = cb.checked;
+                updateColumnVisibility();
+            });
+
+            item.appendChild(cb);
+            item.appendChild(document.createTextNode(col.label));
+            menu.appendChild(item);
+        });
+
+        // Initial Apply
+        updateColumnVisibility();
+    }
+
+    function updateColumnVisibility() {
+        let style = document.getElementById('dynamicColStyles');
+        if (!style) {
+            style = document.createElement('style');
+            style.id = 'dynamicColStyles';
+            document.head.appendChild(style);
+        }
+
+        let css = '';
+        columnConfig.forEach(col => {
+            if (!col.checked) {
+                // Apply to both th (in index.html) and td (in script.js)
+                css += `th.${col.id}, td.${col.id} { display: none !important; }\n`;
+            }
+        });
+        style.textContent = css;
+    }
+
+    // Init Logic
+    initColumnFilter();
+
 }); // End DOMContentLoaded
-
-
-
-
-
-
-
-
-
-

@@ -56,17 +56,17 @@
 }
 
 .insight-value {
-    color: var(--text-color);
+    color: hsl(var(--foreground));
     font-weight: 700;
     font-size: 1.1rem;
     text-align: right;
 }
 
 .insight-value.highlight {
-    color: var(--accent-color);
+    color: hsl(var(--accent));
 }
 
 .insight-value.bottom-perf {
-    color: #ef4444;
+    color: hsl(var(--destructive));
     /* Red for bottom performer? or just text color */
 }

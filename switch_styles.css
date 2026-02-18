@@ -19,7 +19,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #373a40;
+    background-color: hsl(var(--input));
     -webkit-transition: .4s;
     transition: .4s;
 }
@@ -31,18 +31,18 @@
     width: 16px;
     left: 4px;
     bottom: 4px;
-    background-color: white;
+    background-color: hsl(var(--foreground));
     -webkit-transition: .4s;
     transition: .4s;
 }
 
 input:checked+.slider {
-    background-color: #8b5cf6;
-    /* Purple for BOQ mode */
+    background-color: hsl(var(--primary));
+    /* Primary for BOQ mode */
 }
 
 input:focus+.slider {
-    box-shadow: 0 0 1px #8b5cf6;
+    box-shadow: 0 0 1px hsl(var(--primary));
 }
 
 input:checked+.slider:before {
@@ -62,16 +62,14 @@ input:checked+.slider:before {
 
 /* Traffic Light Table Rows */
 .row-red {
-    background-color: rgba(239, 68, 68, 0.15) !important;
-    /* Low variance */
+    background-color: hsl(var(--destructive) / 0.15) !important;
 }
 
 .row-yellow {
     background-color: rgba(245, 158, 11, 0.15) !important;
-    /* Medium variance */
+    /* Keep amber distinct from destructive */
 }
 
 .row-green {
-    background-color: rgba(16, 185, 129, 0.15) !important;
-    /* Good variance */
+    background-color: hsl(var(--accent) / 0.15) !important;
 }
