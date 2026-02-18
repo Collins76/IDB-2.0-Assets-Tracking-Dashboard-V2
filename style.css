@@ -221,8 +221,7 @@ select {
 /* Charts Grid */
 .charts-grid {
     display: grid;
-    grid-template-columns: 2.5fr 1fr;
-    /* Skewed grid per request */
+    grid-template-columns: 1fr;
     gap: 1.5rem;
     margin-bottom: 2rem;
 }
@@ -234,9 +233,9 @@ select {
     min-height: 400px;
 }
 
-.chart-container.wide {
+/* .chart-container.wide {
     grid-column: span 2;
-}
+} */
 
 .chart-container h2 {
     font-size: 1.2rem;

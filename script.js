@@ -927,7 +927,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ]
         };
 
-        Plotly.newPlot('userPerformanceChart', [trace], layout);
+        Plotly.newPlot('userPerformanceChart', [trace], layout, { responsive: true });
     }
 
     // 2. Project Velocity (Area Chart Comparison)
@@ -998,7 +998,7 @@ document.addEventListener('DOMContentLoaded', () => {
             legend: { orientation: "h", y: -0.2 }
         };
 
-        Plotly.newPlot('projectVelocityChart', [traceETC, traceJesom], layout);
+        Plotly.newPlot('projectVelocityChart', [traceETC, traceJesom], layout, { responsive: true });
     }
 
     // 3. Pole Type Distribution (highcharts 3D Pie Chart)
@@ -1110,7 +1110,7 @@ document.addEventListener('DOMContentLoaded', () => {
             legend: { orientation: 'h', y: 1.1 }
         };
 
-        Plotly.newPlot('staffIssuesChart', traces, layout);
+        Plotly.newPlot('staffIssuesChart', traces, layout, { responsive: true });
     }
 
     // 4. Undertaking Breakdown (Bar Chart - Horizontal)
@@ -1142,7 +1142,7 @@ document.addEventListener('DOMContentLoaded', () => {
             xaxis: { title: 'Count' }
         };
 
-        Plotly.newPlot('undertakingChart', [trace], layout);
+        Plotly.newPlot('undertakingChart', [trace], layout, { responsive: true });
     }
 
     // 5. Vendor Performance Comparison (Total Records & Run Rate)
@@ -1200,7 +1200,7 @@ document.addEventListener('DOMContentLoaded', () => {
             margin: { t: 40, b: 40, l: 40, r: 20 }
         };
 
-        Plotly.newPlot('vendorTotalChart', [traceTotal], layoutTotal);
+        Plotly.newPlot('vendorTotalChart', [traceTotal], layoutTotal, { responsive: true });
 
         // --- Chart 2: Run Rate ---
         const traceRunRate = {
@@ -1249,7 +1249,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }]
         };
 
-        Plotly.newPlot('vendorRunRateChart', [traceRunRate], layoutRunRate);
+        Plotly.newPlot('vendorRunRateChart', [traceRunRate], layoutRunRate, { responsive: true });
     }
 
     // 6. Detailed DT Analysis Table (Enhanced)
