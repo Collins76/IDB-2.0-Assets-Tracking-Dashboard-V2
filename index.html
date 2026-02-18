@@ -375,15 +375,34 @@
                 </section>
 
                 <section class="table-section" id="dt-analysis" style="margin-top: 2rem;">
+                    <div class="table-controls"
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
+                        <div id="tableInfo" style="color: #a0a0a0; font-size: 0.9rem;">Showing 0 of 0 DTs</div>
+                        <div class="search-wrapper" style="display: flex; gap: 10px;">
+                            <input type="text" id="dtSearchInput" placeholder="Search DT / User..."
+                                style="padding: 0.5rem; border-radius: 6px; border: 1px solid #555; background: #222; color: #fff; width: 250px;">
+                        </div>
+                    </div>
                     <div class="chart-container wide" style="height: auto; min-height: 400px; overflow-x: auto;">
-                        <h2>DT Performance & Field Officer Analysis</h2>
+                        <h2 style="margin-bottom: 10px;">DT Performance & Field Officer Analysis</h2>
                         <table id="dtTable" class="data-table">
                             <thead>
                                 <tr>
+                                    <th>#</th>
                                     <th>DT Name</th>
+                                    <th>Feeder Name</th>
+                                    <th>BU</th>
+                                    <th>Undertaking</th>
                                     <th>Vendor</th>
+                                    <!-- <th>Field Officers</th>  Too wide? User asked for it. -->
                                     <th>Field Officers</th>
-                                    <th>Poles Captured</th>
+                                    <th>Total (BOQ)</th>
+                                    <th>Actual</th>
+                                    <th>Remaining</th>
+                                    <th>Concrete</th>
+                                    <th>Wooden</th>
+                                    <th>Progress</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -393,6 +412,7 @@
                     </div>
                 </section>
 
+                <!-- Footer -->
                 <footer>
                     <p>IDB 2.0 Monitoring System &copy; 2026</p>
                 </footer>

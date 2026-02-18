@@ -144,6 +144,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('viewModeToggle').addEventListener('change', handleViewModeToggle);
     document.getElementById('downloadExcel').addEventListener('click', downloadExcel);
+    document.getElementById('dtSearchInput')?.addEventListener('input', () => {
+        renderDTTable();
+    });
 
     function downloadExcel() {
         if (!filteredData || filteredData.length === 0) {
@@ -1249,116 +1252,203 @@ document.addEventListener('DOMContentLoaded', () => {
         Plotly.newPlot('vendorRunRateChart', [traceRunRate], layoutRunRate);
     }
 
-    // 6. Detailed DT Analysis Table
+    // 6. Detailed DT Analysis Table (Enhanced)
     function renderDTTable() {
-        // Find the table body; if not found, do nothing (safety check)
         const tbody = document.querySelector('#dtTable tbody');
-        const thead = document.querySelector('#dtTable thead tr');
         if (!tbody) return;
 
-        tbody.innerHTML = ''; // Clear existing
+        tbody.innerHTML = '';
+        const searchVal = (document.getElementById('dtSearchInput')?.value || '').toLowerCase();
 
-        // Dynamic Headers
-        if (viewMode === 'boq') {
-            thead.innerHTML = `
-                <th>DT Name</th>
-                <th>Vendor</th>
-                <th>Total</th>
-                <th>Tagged (Act)</th>
-                <th>Good (T/A)</th>
-                <th>Bad (T/A)</th>
-                <th>Variance %</th>
+        // 1. Get Enhanced Data (Union of BOQ and Field)
+        const data = getEnhancedDTData();
+
+        // 2. Filter by Search Input
+        const filtered = data.filter(item => {
+            if (!searchVal) return true;
+            return (
+                (item.dtName || '').toLowerCase().includes(searchVal) ||
+                (item.vendor || '').toLowerCase().includes(searchVal) ||
+                item.users.some(u => (userFullNames[u] || u).toLowerCase().includes(searchVal))
+            );
+        });
+
+        // 3. Update Info Count
+        const infoEl = document.getElementById('tableInfo');
+        if (infoEl) infoEl.textContent = `Showing ${filtered.length} of ${data.length} DTs`;
+
+        // 4. Render Rows
+        filtered.slice(0, 100).forEach((row, index) => {
+            const tr = document.createElement('tr');
+
+            // Vendor Tag
+            let vendorClass = '';
+            if (row.vendor === 'ETC Workforce') vendorClass = 'vendor-etc';
+            if (row.vendor === 'Jesom Technology') vendorClass = 'vendor-jesom';
+
+            // Progress Bar / Status Logic
+            const progress = row.boqTotal > 0 ? (row.actualTotal / row.boqTotal) * 100 : 0;
+            let status = 'In Progress';
+            let statusColor = '#f59e0b'; // Orange
+
+            if (row.actualTotal === 0) {
+                status = 'Not Started';
+                statusColor = '#ef4444'; // Red
+            } else if (progress >= 100) {
+                status = 'Completed';
+                statusColor = '#10b981'; // Green
+            } else if (progress > 90) {
+                status = 'Near Completion';
+                statusColor = '#3b82f6'; // Blue
+            }
+
+            // User Names
+            const userNames = row.users.map(u => userFullNames[u] || u).join(', ');
+
+            tr.innerHTML = `
+                <td>${index + 1}</td>
+                <td style="font-weight: 500; color: #fff;">${row.dtName}</td>
+                <td>${row.feeder}</td>
+                <td>${row.bu}</td>
+                <td>${row.undertaking}</td>
+                <td><span class="vendor-tag ${vendorClass}">${row.vendor}</span></td>
+                <td style="font-size: 0.85em; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${userNames}">${userNames}</td>
+                <td style="text-align: center; font-weight: bold; color: #0EA5E9;">${row.boqTotal}</td>
+                <td style="text-align: center;">${row.actualTotal}</td>
+                <td style="text-align: center; color: #a0a0a0;">${Math.max(0, row.boqTotal - row.actualTotal)}</td>
+                <td style="text-align: center;">${row.concrete}</td>
+                <td style="text-align: center;">${row.wooden}</td>
+                <td style="width: 100px;">
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <div style="flex-grow: 1; height: 6px; background: #333; border-radius: 3px; overflow: hidden;">
+                            <div style="width: ${Math.min(100, progress)}%; height: 100%; background: ${statusColor};"></div>
+                        </div>
+                        <span style="font-size: 0.8em; color: ${statusColor};">${progress.toFixed(0)}%</span>
+                    </div>
+                </td>
+                <td><span style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; background: ${statusColor}20; color: ${statusColor}; border: 1px solid ${statusColor}40;">${status}</span></td>
             `;
+            tbody.appendChild(tr);
+        });
+    }
 
-            const merged = calculateVariance();
-            // Sort by Variance ascending (negative variance = missing data)
-            merged.sort((a, b) => a.variance - b.variance).slice(0, 100).forEach(row => {
-                const tr = document.createElement('tr');
+    function getEnhancedDTData() {
+        const map = {};
 
-                // Traffic Light Logic
-                // Red: < -20% (Under captured)
-                // Green: >= -5% && <= 5% (Match)
-                // Yellow: Otherwise
-                let rowClass = '';
-                if (row.variance < -20) rowClass = 'row-red';
-                else if (row.variance >= -5 && row.variance <= 5) rowClass = 'row-green';
-                else rowClass = 'row-yellow';
+        // 1. Process Field Data
+        filteredData.forEach(d => {
+            const dtName = (d["DT Name"] || "Unknown DT").trim();
+            const feeder = (d["Feeder"] || "Unknown Feeder").trim();
+            const key = `${feeder}|${dtName}`.toUpperCase();
 
-                tr.className = rowClass;
+            if (!map[key]) {
+                map[key] = {
+                    key,
+                    dtName,
+                    feeder,
+                    bu: d["Bussines Unit"] || "-",
+                    undertaking: d["Undertaking"] || "-",
+                    vendor: d["Vendor_Name"] || "-",
+                    users: new Set(),
+                    boqTotal: 0, // Will fill from BOQ
+                    actualTotal: 0,
+                    concrete: 0,
+                    wooden: 0
+                };
+            }
 
-                // Vendor Tag Class
-                let vendorClass = '';
-                if (row.vendor === 'ETC Workforce') vendorClass = 'vendor-etc';
-                if (row.vendor === 'Jesom Technology') vendorClass = 'vendor-jesom';
+            map[key].actualTotal++;
+            map[key].users.add(d.User);
 
-                tr.innerHTML = `
-                    <td>${row.dtName}</td>
-                    <td><span class="vendor-tag ${vendorClass}">${row.vendor}</span></td>
-                    <td>${row.boqTotal}</td>
-                    <td>${row.actualTotal}</td>
-                    <td>${row.boqGood} / ${row.actualGood}</td>
-                    <td>${row.boqBad} / ${row.actualBad}</td>
-                    <td style="font-weight:bold;">${row.variance.toFixed(1)}%</td>
-                 `;
-                tbody.appendChild(tr);
-            });
+            // Material
+            const mat = String(d["Pole Material"] || d["Material"] || d["Pole_Material"] || "").toLowerCase();
+            const type = String(d["Type of Pole"] || "").toLowerCase();
+            if (mat.includes('concrete') || type.includes('concrete')) map[key].concrete++;
+            if (mat.includes('wood') || type.includes('wood')) map[key].wooden++;
+        });
 
-        } else {
-            // Restore Original Header
-            thead.innerHTML = `
-                <th>DT Name</th>
-                <th>Vendor</th>
-                <th>Field Officers</th>
-                <th>Poles Captured</th>
-             `;
+        // 2. Process BOQ Data (Fill Targets)
+        // Respect Feeder/DT filters if possible, but for "Total (BOQ)", usually we want the Static BOQ target for that DT.
+        // However, we should filter BOQ by the global dashboard filters TO AN EXTENT (e.g. if I selected a Feeder, I only want DTs in that Feeder).
+        // `filteredData` is already filtered. `boqData` is just raw.
+        // I need to iterate `boqData` and match. 
+        // Also if a DT is in BOQ but NOT in field data, we should add it?
+        // Yes, to show "0 Actual" and "Status: Not Started".
 
-            // Group by DT Name + Vendor
-            const groups = {};
+        // Apply same filters to BOQ as Dashboard?
+        // The dashboard filters (bu, ut, vendor...) apply to Field Data.
+        // BOQ only has Feeder/DT.
+        // If I filter by Vendor=ETC, I should only see DTs assigned to ETC?
+        // But BOQ doesn't have Vendor.
+        // Only Field Data determines Vendor.
+        // So if I filter by Vendor, I implicitly filter out "Not Started" DTs because they have no Vendor assigned in Field Data yet?
+        // UNLESS we have a mapping of BOQ DTs to Vendors. We don't.
+        // So: If filtered by Vendor, we only show DTs that have started (have field data).
+        // If NO Vendor filter (All), we show everything.
+        // This suggests:
+        // - Iterate field map (which respects all filters).
+        // - Iterate BOQ. If BOQ item matches a key in field map, update boqTotal.
+        // - IF BOQ item does NOT match field map:
+        //   - IF "All" filters are selected (or at least Vendor is All), add it as "Not Started".
+        //   - IF filters are active (e.g. Vendor=ETC), do NOT add it (because we don't know if it belongs to ETC).
 
-            filteredData.forEach(d => {
-                // Use the actual 'DT Name' field from JSON. Fallback to 'Unknown' if missing.
-                const dtName = d["DT Name"] || "Unknown DT";
-                const vendor = d.Vendor_Name;
-                const key = `${dtName}|${vendor}`;
+        const vendorFilter = document.getElementById('vendorFilter')?.value || 'All';
+        const isFiltered = vendorFilter !== 'All'; // Simplified check. Just checking Vendor.
 
-                if (!groups[key]) {
-                    groups[key] = {
-                        dtName: dtName,
-                        vendor: vendor,
-                        users: new Set(),
-                        poleCount: 0
+        boqData.forEach(d => {
+            const dtName = (d["DT NAME"] || "Unknown DT").trim();
+            const feeder = (d["FEEDER NAME"] || "Unknown Feeder").trim();
+            const key = `${feeder}|${dtName}`.toUpperCase();
+
+            // Check filters (Feeder/DT)
+            const selFeeder = document.getElementById('feederFilter')?.value;
+            const selDT = document.getElementById('dtFilter')?.value;
+
+            if (selFeeder && selFeeder !== 'All' && feeder !== selFeeder) return;
+            if (selDT && selDT !== 'All' && dtName !== selDT) return;
+
+
+            if (map[key]) {
+                // Exists in field data (so it passed field filters)
+                map[key].boqTotal += (parseInt(d["POLES Grand Total"]) || 0);
+            } else {
+                // Not in field data.
+                // Only add if we are not strictly filtering by attributes we determine from field (like Vendor, User, Material, BU, UT).
+                // If I filtered by "Concrete", I can't show a BOQ-only item because I don't know if it will be concrete.
+                // So, if ANY filter (other than Feeder/DT) is active, we might skip BOQ-only items to avoid showing unrelated data?
+                // OR we just show them as "No Data".
+                // But the user request implies a management dashboard.
+                // Let's safe side: Only add BOQ-only items if NO major field-dependent filters are active.
+                // Major filters: Vendor, BU, Undertaking, User, Material.
+
+                // Active Filters Check
+                const fVendor = document.getElementById('vendorFilter').value;
+                const fBU = document.getElementById('buFilter').value;
+                const fUT = document.getElementById('utFilter').value;
+                const fUser = document.getElementById('userFilter').value;
+                const fMat = document.getElementById('materialFilter').value;
+
+                const hasFieldFilter = fVendor !== 'All' || fBU !== 'All' || fUT !== 'All' || fUser !== 'All' || fMat !== '';
+
+                if (!hasFieldFilter) {
+                    map[key] = {
+                        key,
+                        dtName,
+                        feeder,
+                        bu: "-",
+                        undertaking: "-",
+                        vendor: "Pending", // No vendor assigned yet
+                        users: [],
+                        boqTotal: (parseInt(d["POLES Grand Total"]) || 0),
+                        actualTotal: 0,
+                        concrete: 0,
+                        wooden: 0
                     };
                 }
-                groups[key].users.add(d.User);
-                groups[key].poleCount++;
-            });
+            }
+        });
 
-            // Convert to array and sort by Pole Count desc
-            const sortedGroups = Object.values(groups).sort((a, b) => b.poleCount - a.poleCount);
-
-            // Limit to top 100 rows
-            const rowsToShow = sortedGroups.slice(0, 100);
-
-            rowsToShow.forEach(row => {
-                const tr = document.createElement('tr');
-
-                // Format Field Officers list using global `userFullNames`
-                const userNames = Array.from(row.users).map(u => userFullNames[u] || u).join(', ');
-
-                // Vendor Tag Class
-                let vendorClass = '';
-                if (row.vendor === 'ETC Workforce') vendorClass = 'vendor-etc';
-                if (row.vendor === 'Jesom Technology') vendorClass = 'vendor-jesom';
-
-                tr.innerHTML = `
-                    <td>${row.dtName}</td>
-                    <td><span class="vendor-tag ${vendorClass}">${row.vendor}</span></td>
-                    <td>${userNames}</td>
-                    <td>${row.poleCount}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
+        return Object.values(map);
     }
 
 
