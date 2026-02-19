@@ -275,8 +275,26 @@ select {
     gap: 1.5rem;
 }
 
+.chart-split-row {
+    grid-column: span 2;
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    /* Give more space to the line chart, less to doughnut */
+    gap: 1.5rem;
+}
+
+.small-card {
+    /* Optional: specific styling for small card if needed beyond grid constraint */
+}
+
+@media (max-width: 900px) {
+    .chart-split-row {
+        grid-template-columns: 1fr;
+    }
+}
+
 .chart-container h2 {
-    font-size: 1.2rem;
+    font-size: 1rem;
     margin-bottom: 1rem;
     color: var(--text-color);
     border-bottom: 1px solid var(--border-color);
@@ -300,13 +318,19 @@ footer {
 
 /* Data Table */
 .table-section {
-    padding: 0 40px 40px;
+    padding: 0 10px 40px;
+    /* Reduced from 0 40px 40px */
+}
+
+.table-section .chart-container {
+    padding: 0.5rem;
+    /* Reduced from 1.5rem */
 }
 
 .data-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 1rem;
+    margin-top: 0.5rem;
     font-size: 0.95rem;
 }
 
@@ -1063,34 +1087,4 @@ footer {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
     display: none;
     flex-direction: column;
-}
-
-.search-suggestion-item {
-    padding: 8px 12px;
-    cursor: pointer;
-    border-bottom: 1px solid #2d3748;
-    color: #cbd5e1;
-    font-size: 0.85rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.search-suggestion-item:hover {
-    background-color: #3b82f6;
-    color: white;
-}
-
-.search-suggestion-item:last-child {
-    border-bottom: none;
-}
-
-.suggestion-type {
-    font-size: 0.7em;
-    opacity: 0.7;
-    text-transform: uppercase;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 2px 4px;
-    border-radius: 4px;
-    margin-left: 8px;
 }

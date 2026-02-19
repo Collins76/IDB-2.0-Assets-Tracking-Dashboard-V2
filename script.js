@@ -116,6 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
         populateFilters();
         updateDashboard();
         updateExecutiveSummary(globalData);
+        initColumnFilters();
+        initSearchSuggestions();
 
         document.querySelectorAll('.last-updated').forEach(el => {
             el.textContent = `Last Updated: ${new Date().toLocaleTimeString()}`;
@@ -856,6 +858,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 elRem.textContent = 'Remaining: -';
             }
         }
+        if (suffix === 'records') {
+            const completionText = document.getElementById('system-completion-text');
+            const completionBar = document.getElementById('system-completion-bar');
+            if (completionText && completionBar) {
+                // If viewMode is field (default), boqVal is 0, so completion is 0%.
+                // We likely want global BOQ vs global Actual for "Project Completion" regardless of view mode?
+                // Visual indicates "4.9%". Let's use global BOQ sum if possible.
+                // Re-calculate global progress if needed, or use current KPI logic.
+                // KPI logic uses boqVal which is 0 in 'field' mode.
+                // Let's force calculate global BOQ for this status bar if boqVal is 0.
+
+                let totalBoq = boqVal;
+                if (totalBoq === 0 && boqData.length > 0) {
+                    totalBoq = boqData.reduce((sum, d) => sum + (parseInt(d["POLES Grand Total"]) || 0), 0);
+                }
+
+                let systemPct = 0;
+                if (totalBoq > 0) {
+                    systemPct = (actVal / totalBoq) * 100;
+                }
+
+                completionText.textContent = systemPct.toFixed(1) + '%';
+                completionBar.style.width = Math.min(systemPct, 100) + '%';
+            }
+        }
     }
 
     // --- Chart Rendering Functions ---
@@ -1025,19 +1052,33 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             plotOptions: {
                 pie: {
-                    innerSize: 0,
-                    depth: 45,
+                    innerSize: '50%', // Create Doughnut
+                    size: '60%',      // Reduce visual width
+                    depth: 35,
                     allowPointSelect: true,
                     cursor: 'pointer',
                     dataLabels: {
                         enabled: true,
-                        format: '<b>{point.name}</b>: {point.percentage:.1f} %',
+                        format: '<b>{point.name}</b>: {point.y} ({point.percentage:.1f} %)',
                         style: {
                             color: '#e4e5e7',
-                            textOutline: 'none'
-                        }
+                            textOutline: 'none',
+                            fontSize: '8px'
+                        },
+                        connectorColor: 'silver',
+                        softConnector: true
                     },
                     showInLegend: true
+                }
+            },
+            legend: {
+                itemStyle: {
+                    color: '#e4e5e7',
+                    fontWeight: 'normal',
+                    fontSize: '9px'
+                },
+                itemHoverStyle: {
+                    color: '#ffffff'
                 }
             },
             series: [{
@@ -1177,13 +1218,14 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         const layoutTotal = {
-            title: { text: 'Total Records by Vendor', font: { color: '#e4e5e7', size: 16 } },
+            title: null, // Title in HTML now
             paper_bgcolor: 'rgba(0,0,0,0)',
             plot_bgcolor: 'rgba(0,0,0,0)',
             font: { color: '#fafafa' },
             xaxis: { title: '' },
             yaxis: { title: '', showgrid: true, gridcolor: '#334155' },
-            margin: { t: 40, b: 40, l: 40, r: 40 }
+            margin: { t: 20, b: 40, l: 40, r: 20 },
+            height: 350 // Adjusted for single card
         };
 
         Plotly.newPlot('vendorTotalChart', [traceTotal], layoutTotal, { responsive: true });
@@ -1216,13 +1258,14 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         const layoutRunRate = {
-            title: { text: 'Avg Daily Run Rate (Per Officer)', font: { color: '#e4e5e7', size: 16 } },
+            title: null, // Title in HTML now
             paper_bgcolor: 'rgba(0,0,0,0)',
             plot_bgcolor: 'rgba(0,0,0,0)',
             font: { color: '#fafafa' },
             xaxis: { title: '' },
             yaxis: { title: '', showgrid: true, gridcolor: '#334155', range: [0, Math.max(60, Math.max(...runRates) * 1.1)] }, // Ensure grid scale fits target line
-            margin: { t: 40, b: 40, l: 40, r: 40 },
+            margin: { t: 20, b: 40, l: 40, r: 20 },
+            height: 350, // Adjusted for single card
             shapes: [targetLine],
             annotations: [{
                 x: 1,
@@ -1239,6 +1282,154 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+    // --- Column Definitions ---
+    const tableColumns = [
+        { id: 'col-index', label: '#', visible: true },
+        { id: 'col-dtName', label: 'DT Name', visible: true },
+        { id: 'col-feeder', label: 'Feeder Name', visible: true },
+        { id: 'col-bu', label: 'BU', visible: true },
+        { id: 'col-undertaking', label: 'Undertaking', visible: true },
+        { id: 'col-vendor', label: 'Vendor', visible: true },
+        { id: 'col-users', label: 'Field Officers', visible: true },
+        { id: 'col-boqTotal', label: 'Total (BOQ)', visible: true },
+        { id: 'col-actualTotal', label: 'Actual', visible: true },
+        { id: 'col-remaining', label: 'Remaining', visible: true },
+        { id: 'col-concrete', label: 'Concrete', visible: true },
+        { id: 'col-wooden', label: 'Wooden', visible: true },
+        { id: 'col-progress', label: 'Progress', visible: true },
+        { id: 'col-status', label: 'Status', visible: true }
+    ];
+
+    function initColumnFilters() {
+        const menu = document.getElementById('columnFilterMenu');
+        const btn = document.getElementById('columnFilterBtn');
+        if (!menu || !btn) return;
+
+        // Toggle Menu
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
+        });
+
+        // Close on outside click
+        document.addEventListener('click', (e) => {
+            if (!menu.contains(e.target) && !btn.contains(e.target)) {
+                menu.style.display = 'none';
+            }
+        });
+
+        // Populate
+        menu.innerHTML = '';
+        tableColumns.forEach((col) => {
+            const label = document.createElement('label');
+            label.className = 'col-check-item';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = col.visible;
+            checkbox.addEventListener('change', () => {
+                col.visible = checkbox.checked;
+                updateColumnVisibility();
+            });
+
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(col.label));
+            menu.appendChild(label);
+        });
+
+        // Initial Visibility Set
+        updateColumnVisibility();
+    }
+
+    function updateColumnVisibility() {
+        // Update Header
+        tableColumns.forEach(col => {
+            const th = document.querySelector(`#dtTable th.${col.id}`);
+            if (th) th.style.display = col.visible ? '' : 'none';
+        });
+
+        // Update Body (by re-rendering)
+        renderDTTable();
+    }
+
+    function initSearchSuggestions() {
+        const input = document.getElementById('dtSearchInput');
+        const list = document.getElementById('searchSuggestions');
+        if (!input || !list) return;
+
+        input.addEventListener('input', () => {
+            const val = input.value.trim().toLowerCase();
+
+            // Trigger render on every keystroke
+            renderDTTable();
+
+            if (val.length < 2) {
+                list.style.display = 'none';
+                return;
+            }
+
+            // Get unique suggestions
+            const suggestions = new Set();
+            const data = getEnhancedDTData();
+
+            for (const item of data) {
+                if (suggestions.size >= 8) break; // Limit suggestions
+
+                const candidates = [
+                    item.dtName,
+                    item.vendor,
+                    item.feeder,
+                    item.bu,
+                    item.undertaking
+                ];
+
+                candidates.forEach(c => {
+                    if (c && String(c).toLowerCase().includes(val)) {
+                        suggestions.add(String(c));
+                    }
+                });
+
+                // Users
+                item.users.forEach(u => {
+                    const name = userFullNames[u] || u;
+                    if (name && name.toLowerCase().includes(val)) suggestions.add(name);
+                });
+            }
+
+            // Render
+            const results = Array.from(suggestions).slice(0, 8);
+            if (results.length > 0) {
+                list.innerHTML = results.map(s =>
+                    `<div style="padding: 8px 12px; cursor: pointer; color: #e2e8f0; border-bottom: 1px solid #334155;">${s}</div>`
+                ).join('');
+
+                list.style.display = 'flex';
+
+                // Click handler
+                Array.from(list.children).forEach(div => {
+                    div.addEventListener('click', () => {
+                        input.value = div.textContent;
+                        list.style.display = 'none';
+                        renderDTTable();
+                    });
+
+                    // Hover effect
+                    div.addEventListener('mouseenter', () => div.style.backgroundColor = '#334155');
+                    div.addEventListener('mouseleave', () => div.style.backgroundColor = 'transparent');
+                });
+            } else {
+                list.style.display = 'none';
+            }
+        });
+
+        // Hide on click outside
+        document.addEventListener('click', (e) => {
+            if (!input.contains(e.target) && !list.contains(e.target)) {
+                list.style.display = 'none';
+            }
+        });
+    }
+
     // 6. Detailed DT Analysis Table (Enhanced)
     function renderDTTable() {
         const tbody = document.querySelector('#dtTable tbody');
@@ -1250,7 +1441,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1. Get Enhanced Data (Union of BOQ and Field)
         const data = getEnhancedDTData();
 
-        // 2. Filter by Search Input
         // 2. Filter by Search Input (Interactive)
         const filtered = data.filter(item => {
             if (!searchVal) return true;
@@ -1280,6 +1470,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const startIndex = (currentPage - 1) * rowsPerPage;
         const endIndex = startIndex + rowsPerPage;
         const paginatedData = filtered.slice(startIndex, endIndex);
+
+        // Helper to check visibility
+        const isVisible = (id) => {
+            const col = tableColumns.find(c => c.id === id);
+            return col ? col.visible : true;
+        };
 
         // 5. Render Rows
         paginatedData.forEach((row, index) => {
@@ -1311,29 +1507,31 @@ document.addEventListener('DOMContentLoaded', () => {
             // Absolute index for numbering
             const absIndex = startIndex + index + 1;
 
-            tr.innerHTML = `
-                <td class="col-index" style="text-align: center;">${absIndex}</td>
-                <td class="col-dtName" style="font-weight: 500; color: #fff;">${row.dtName}</td>
-                <td class="col-feeder">${row.feeder}</td>
-                <td class="col-bu">${row.bu}</td>
-                <td class="col-undertaking">${row.undertaking}</td>
-                <td class="col-vendor"><span class="vendor-tag ${vendorClass}">${row.vendor}</span></td>
-                <td class="col-users" style="max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${userNames}">${userNames}</td>
-                <td class="col-boqTotal" style="text-align: center; font-weight: bold; color: #0EA5E9;">${row.boqTotal}</td>
-                <td class="col-actualTotal" style="text-align: center;">${row.actualTotal}</td>
-                <td class="col-remaining" style="text-align: center; color: #a0a0a0;">${Math.max(0, row.boqTotal - row.actualTotal)}</td>
-                <td class="col-concrete" style="text-align: center;">${row.concrete}</td>
-                <td class="col-wooden" style="text-align: center;">${row.wooden}</td>
-                <td class="col-progress" style="width: 70px;">
+            let rowHtml = '';
+
+            if (isVisible('col-index')) rowHtml += `<td class="col-index" style="text-align: center;">${absIndex}</td>`;
+            if (isVisible('col-dtName')) rowHtml += `<td class="col-dtName" style="font-weight: 500; color: #fff;">${row.dtName}</td>`;
+            if (isVisible('col-feeder')) rowHtml += `<td class="col-feeder">${row.feeder}</td>`;
+            if (isVisible('col-bu')) rowHtml += `<td class="col-bu">${row.bu}</td>`;
+            if (isVisible('col-undertaking')) rowHtml += `<td class="col-undertaking">${row.undertaking}</td>`;
+            if (isVisible('col-vendor')) rowHtml += `<td class="col-vendor"><span class="vendor-tag ${vendorClass}">${row.vendor}</span></td>`;
+            if (isVisible('col-users')) rowHtml += `<td class="col-users" style="max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${userNames}">${userNames}</td>`;
+            if (isVisible('col-boqTotal')) rowHtml += `<td class="col-boqTotal" style="text-align: center; font-weight: bold; color: #0EA5E9;">${row.boqTotal}</td>`;
+            if (isVisible('col-actualTotal')) rowHtml += `<td class="col-actualTotal" style="text-align: center;">${row.actualTotal}</td>`;
+            if (isVisible('col-remaining')) rowHtml += `<td class="col-remaining" style="text-align: center; color: #a0a0a0;">${Math.max(0, row.boqTotal - row.actualTotal)}</td>`;
+            if (isVisible('col-concrete')) rowHtml += `<td class="col-concrete" style="text-align: center;">${row.concrete}</td>`;
+            if (isVisible('col-wooden')) rowHtml += `<td class="col-wooden" style="text-align: center;">${row.wooden}</td>`;
+            if (isVisible('col-progress')) rowHtml += `<td class="col-progress" style="width: 70px;">
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <div style="flex-grow: 1; height: 4px; background: #333; border-radius: 2px; overflow: hidden;">
                             <div style="width: ${Math.min(100, progress)}%; height: 100%; background: ${statusColor};"></div>
                         </div>
                         <span style="font-size: 0.8em; color: ${statusColor};">${progress.toFixed(0)}%</span>
                     </div>
-                </td>
-                <td class="col-status"><span style="font-size: 0.8em; padding: 1px 6px; border-radius: 8px; background: ${statusColor}20; color: ${statusColor}; border: 1px solid ${statusColor}40; white-space: nowrap;">${status}</span></td>
-            `;
+                </td>`;
+            if (isVisible('col-status')) rowHtml += `<td class="col-status"><span style="font-size: 0.8em; padding: 1px 6px; border-radius: 8px; background: ${statusColor}20; color: ${statusColor}; border: 1px solid ${statusColor}40; white-space: nowrap;">${status}</span></td>`;
+
+            tr.innerHTML = rowHtml;
             tbody.appendChild(tr);
         });
 
@@ -2238,173 +2436,61 @@ document.addEventListener('DOMContentLoaded', () => {
         resetFiltersBtn.addEventListener('click', resetFilters);
     }
 
-    const dtSearchInput = document.getElementById('dtSearchInput');
-    if (dtSearchInput) {
-        dtSearchInput.addEventListener('input', function () {
-            currentPage = 1;
-            renderDTTable();
-            handleSearchInput(this.value);
-        });
-
-        dtSearchInput.addEventListener('blur', () => {
-            // Delay hiding to allow click event on suggestion to fire
-            setTimeout(() => {
-                const list = document.getElementById('searchSuggestions');
-                if (list) list.style.display = 'none';
-            }, 200);
-        });
-
-        dtSearchInput.addEventListener('focus', function () {
-            if (this.value.trim().length > 0) handleSearchInput(this.value);
-        });
-    }
-
-    // --- Search Intelligence ---
-    function handleSearchInput(val) {
-        const list = document.getElementById('searchSuggestions');
-        if (!list) return;
-
-        const query = val.toLowerCase().trim();
-        if (query.length === 0) {
-            list.style.display = 'none';
-            return;
-        }
-
-        const suggestions = getSearchSuggestions(query);
-        if (suggestions.length === 0) {
-            list.style.display = 'none';
-            return;
-        }
-
-        list.innerHTML = '';
-        suggestions.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'search-suggestion-item';
-            div.innerHTML = `<span>${item.text}</span> <span class="suggestion-type">${item.type}</span>`;
-            div.onclick = () => {
-                applySearchSuggestion(item.text);
-            };
-            list.appendChild(div);
-        });
-        list.style.display = 'flex';
-    }
-
-    function getSearchSuggestions(query) {
-        // Search across filteredData
-        const maxResults = 8;
-        const results = [];
-        const seen = new Set();
-
-        for (const row of filteredData) {
-            if (results.length >= maxResults) break;
-
-            // Helper to add
-            const add = (text, type) => {
-                if (results.length >= maxResults) return;
-                if (text && text.toLowerCase().includes(query) && !seen.has(text)) {
-                    seen.add(text);
-                    results.push({ text, type });
-                }
-            };
-
-            add(row.dtName, 'DT');
-            add(row.feeder, 'Feeder');
-            add(row.vendor, 'Vendor');
-            if (row.users) row.users.forEach(u => add(userFullNames[u] || u, 'User'));
-        }
-        return results;
-    }
-
-    function applySearchSuggestion(text) {
-        const input = document.getElementById('dtSearchInput');
-        if (input) {
-            input.value = text;
-            input.dispatchEvent(new Event('input'));
-            const list = document.getElementById('searchSuggestions');
-            if (list) list.style.display = 'none';
-        }
-    }
-
-    // --- Column Visibility Logic ---
-    const columnConfig = [
-        { id: 'col-index', label: '#', checked: true },
-        { id: 'col-dtName', label: 'DT Name', checked: true },
-        { id: 'col-feeder', label: 'Feeder', checked: true },
-        { id: 'col-bu', label: 'BU', checked: true },
-        { id: 'col-undertaking', label: 'Undertaking', checked: true },
-        { id: 'col-vendor', label: 'Vendor', checked: true },
-        { id: 'col-users', label: 'Field Officers', checked: true },
-        { id: 'col-boqTotal', label: 'Total (BOQ)', checked: true },
-        { id: 'col-actualTotal', label: 'Actual', checked: true },
-        { id: 'col-remaining', label: 'Remaining', checked: true },
-        { id: 'col-concrete', label: 'Concrete', checked: true },
-        { id: 'col-wooden', label: 'Wooden', checked: true },
-        { id: 'col-progress', label: 'Progress', checked: true },
-        { id: 'col-status', label: 'Status', checked: true }
-    ];
-
-    function initColumnFilter() {
-        const btn = document.getElementById('columnFilterBtn');
-        const menu = document.getElementById('columnFilterMenu');
-        if (!btn || !menu) return;
-
-        // Toggle Menu
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
-        });
-
-        // Close when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!btn.contains(e.target) && !menu.contains(e.target)) {
-                menu.style.display = 'none';
-            }
-        });
-
-        // Populate Menu
-        menu.innerHTML = '';
-        columnConfig.forEach(col => {
-            const item = document.createElement('label');
-            item.className = 'col-check-item';
-
-            const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.checked = col.checked;
-            cb.dataset.colId = col.id;
-
-            cb.addEventListener('change', () => {
-                col.checked = cb.checked;
-                updateColumnVisibility();
+    const downloadCsvBtn = document.getElementById('downloadCSV');
+    if (downloadCsvBtn) {
+        downloadCsvBtn.addEventListener('click', () => {
+            const data = getEnhancedDTData();
+            // Filter by current search input
+            const searchVal = (document.getElementById('dtSearchInput')?.value || '').toLowerCase();
+            const filtered = data.filter(item => {
+                if (!searchVal) return true;
+                return (
+                    (item.dtName || '').toLowerCase().includes(searchVal) ||
+                    (item.vendor || '').toLowerCase().includes(searchVal) ||
+                    (item.feeder || '').toLowerCase().includes(searchVal) ||
+                    (item.bu || '').toLowerCase().includes(searchVal) ||
+                    (item.undertaking || '').toLowerCase().includes(searchVal) ||
+                    item.users.some(u => String(userFullNames[u] || u || '').toLowerCase().includes(searchVal))
+                );
             });
 
-            item.appendChild(cb);
-            item.appendChild(document.createTextNode(col.label));
-            menu.appendChild(item);
-        });
-
-        // Initial Apply
-        updateColumnVisibility();
-    }
-
-    function updateColumnVisibility() {
-        let style = document.getElementById('dynamicColStyles');
-        if (!style) {
-            style = document.createElement('style');
-            style.id = 'dynamicColStyles';
-            document.head.appendChild(style);
-        }
-
-        let css = '';
-        columnConfig.forEach(col => {
-            if (!col.checked) {
-                // Apply to both th (in index.html) and td (in script.js)
-                css += `th.${col.id}, td.${col.id} { display: none !important; }\n`;
+            if (!filtered || filtered.length === 0) {
+                alert("No data to export");
+                return;
             }
+
+            const headers = ["DT Name", "Feeder", "BU", "Undertaking", "Vendor", "Users", "BOQ Total", "Actual Total", "Gap", "Concrete", "Wooden"];
+
+            const csvRows = [headers.join(',')];
+
+            filtered.forEach(row => {
+                const values = [
+                    `"${row.dtName || ''}"`,
+                    `"${row.feeder || ''}"`,
+                    `"${row.bu || ''}"`,
+                    `"${row.undertaking || ''}"`,
+                    `"${row.vendor || ''}"`,
+                    `"${(row.users || []).map(u => userFullNames[u] || u).join('; ')}"`,
+                    row.boqTotal || 0,
+                    row.actualTotal || 0,
+                    Math.max(0, (row.boqTotal || 0) - (row.actualTotal || 0)),
+                    row.concrete || 0,
+                    row.wooden || 0
+                ];
+                csvRows.push(values.join(','));
+            });
+
+            const csvContent = csvRows.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", "dt_analysis_export.csv");
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         });
-        style.textContent = css;
     }
 
-    // Init Logic
-    initColumnFilter();
-
-}); // End DOMContentLoaded
+});
