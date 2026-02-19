@@ -1183,7 +1183,7 @@ document.addEventListener('DOMContentLoaded', () => {
             font: { color: '#fafafa' },
             xaxis: { title: '' },
             yaxis: { title: '', showgrid: true, gridcolor: '#334155' },
-            margin: { t: 40, b: 40, l: 40, r: 20 }
+            margin: { t: 40, b: 40, l: 40, r: 40 }
         };
 
         Plotly.newPlot('vendorTotalChart', [traceTotal], layoutTotal, { responsive: true });
@@ -1222,7 +1222,7 @@ document.addEventListener('DOMContentLoaded', () => {
             font: { color: '#fafafa' },
             xaxis: { title: '' },
             yaxis: { title: '', showgrid: true, gridcolor: '#334155', range: [0, Math.max(60, Math.max(...runRates) * 1.1)] }, // Ensure grid scale fits target line
-            margin: { t: 40, b: 40, l: 40, r: 20 },
+            margin: { t: 40, b: 40, l: 40, r: 40 },
             shapes: [targetLine],
             annotations: [{
                 x: 1,
@@ -1516,7 +1516,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const fBU = document.getElementById('buFilter').value;
                 const fUT = document.getElementById('utFilter').value;
                 const fUser = document.getElementById('userFilter').value;
-                const fMat = document.getElementById('materialFilter').value;
+                const fMat = document.getElementById('materialFilter')?.value || '';
 
                 const hasFieldFilter = fVendor !== 'All' || fBU !== 'All' || fUT !== 'All' || fUser !== 'All' || fMat !== '';
 
@@ -1571,8 +1571,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (infoEl) infoEl.textContent = `Showing ${filtered.length} of ${data.length} DTs`;
 
         // 4. Render Rows
-        filtered.slice(0, 100).forEach((row, index) => {
+        // 4. Pagination Logic
+        const totalRows = filtered.length;
+        const totalPages = Math.ceil(totalRows / rowsPerPage);
+
+        // Ensure currentPage is valid
+        if (currentPage > totalPages) currentPage = Math.max(1, totalPages);
+
+        const startIndex = (currentPage - 1) * rowsPerPage;
+        const endIndex = startIndex + rowsPerPage;
+
+        const paginatedRows = filtered.slice(startIndex, endIndex);
+
+        // 4b. Render Rows
+        paginatedRows.forEach((row, index) => {
             const tr = document.createElement('tr');
+            const globalIndex = startIndex + index + 1;
 
             // Vendor Tag
             let vendorClass = '';
@@ -1598,20 +1612,21 @@ document.addEventListener('DOMContentLoaded', () => {
             // User Names
             const userNames = row.users.map(u => userFullNames[u] || u).join(', ');
 
+            // Add classes for column visibility
             tr.innerHTML = `
-                <td style="text-align: center;">${index + 1}</td>
-                <td style="font-weight: 500; color: #fff;">${row.dtName}</td>
-                <td>${row.feeder}</td>
-                <td>${row.bu}</td>
-                <td>${row.undertaking}</td>
-                <td><span class="vendor-tag ${vendorClass}">${row.vendor}</span></td>
-                <td style="max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${userNames}">${userNames}</td>
-                <td style="text-align: center; font-weight: bold; color: #0EA5E9;">${row.boqTotal}</td>
-                <td style="text-align: center;">${row.actualTotal}</td>
-                <td style="text-align: center; color: #a0a0a0;">${Math.max(0, row.boqTotal - row.actualTotal)}</td>
-                <td style="text-align: center;">${row.concrete}</td>
-                <td style="text-align: center;">${row.wooden}</td>
-                <td style="width: 70px;">
+                <td class="col-index" style="text-align: center;">${globalIndex}</td>
+                <td class="col-dtName" style="font-weight: 500; color: #fff;">${row.dtName}</td>
+                <td class="col-feeder">${row.feeder}</td>
+                <td class="col-bu">${row.bu}</td>
+                <td class="col-undertaking">${row.undertaking}</td>
+                <td class="col-vendor"><span class="vendor-tag ${vendorClass}">${row.vendor}</span></td>
+                <td class="col-users" style="max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${userNames}">${userNames}</td>
+                <td class="col-boqTotal" style="text-align: center; font-weight: bold; color: #0EA5E9;">${row.boqTotal}</td>
+                <td class="col-actualTotal" style="text-align: center;">${row.actualTotal}</td>
+                <td class="col-remaining" style="text-align: center; color: #a0a0a0;">${Math.max(0, row.boqTotal - row.actualTotal)}</td>
+                <td class="col-concrete" style="text-align: center;">${row.concrete}</td>
+                <td class="col-wooden" style="text-align: center;">${row.wooden}</td>
+                <td class="col-progress" style="width: 70px;">
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <div style="flex-grow: 1; height: 4px; background: #333; border-radius: 2px; overflow: hidden;">
                             <div style="width: ${Math.min(100, progress)}%; height: 100%; background: ${statusColor};"></div>
@@ -1619,10 +1634,74 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span style="font-size: 0.8em; color: ${statusColor};">${progress.toFixed(0)}%</span>
                     </div>
                 </td>
-                <td><span style="font-size: 0.8em; padding: 1px 6px; border-radius: 8px; background: ${statusColor}20; color: ${statusColor}; border: 1px solid ${statusColor}40; white-space: nowrap;">${status}</span></td>
+                <td class="col-status"><span style="font-size: 0.8em; padding: 1px 6px; border-radius: 8px; background: ${statusColor}20; color: ${statusColor}; border: 1px solid ${statusColor}40; white-space: nowrap;">${status}</span></td>
             `;
             tbody.appendChild(tr);
         });
+
+        // 5. Update Info & Render Pagination Controls
+        if (infoEl) infoEl.textContent = `Showing ${startIndex + 1}-${Math.min(endIndex, totalRows)} of ${totalRows} DTs`;
+        renderPaginationControls(totalPages);
+    }
+
+    function renderPaginationControls(totalPages) {
+        const container = document.getElementById('paginationControls');
+        if (!container) return;
+
+        container.innerHTML = '';
+        if (totalPages <= 1) return;
+
+        // Prev Button
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'page-btn';
+        prevBtn.innerHTML = '&lt;'; // <
+        prevBtn.disabled = currentPage === 1;
+        prevBtn.onclick = () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderDTTable();
+            }
+        };
+        container.appendChild(prevBtn);
+
+        // Page Numbers (Smart display: First, Last, Current +/- 1)
+        const pagesToShow = new Set([1, totalPages, currentPage, currentPage - 1, currentPage + 1]);
+        const sortedPages = [...pagesToShow].filter(p => p >= 1 && p <= totalPages).sort((a, b) => a - b);
+
+        let lastPage = 0;
+        sortedPages.forEach(p => {
+            if (lastPage > 0 && p - lastPage > 1) {
+                // Ellipsis
+                const span = document.createElement('span');
+                span.className = 'page-ellipsis';
+                span.textContent = '...';
+                span.style.color = '#64748b';
+                container.appendChild(span);
+            }
+
+            const btn = document.createElement('button');
+            btn.className = `page-btn ${p === currentPage ? 'active' : ''}`;
+            btn.textContent = p;
+            btn.onclick = () => {
+                currentPage = p;
+                renderDTTable();
+            };
+            container.appendChild(btn);
+            lastPage = p;
+        });
+
+        // Next Button
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'page-btn';
+        nextBtn.innerHTML = '&gt;'; // >
+        nextBtn.disabled = currentPage === totalPages;
+        nextBtn.onclick = () => {
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderDTTable();
+            }
+        };
+        container.appendChild(nextBtn);
     }
 
 

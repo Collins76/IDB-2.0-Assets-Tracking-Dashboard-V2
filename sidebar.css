@@ -62,7 +62,7 @@
 
 /* Override container */
 .dashboard-container {
-    max-width: 1600px;
+    max-width: 98%;
     /* Allow wider layout */
     margin: 0 auto;
     padding: 2rem;
