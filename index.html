@@ -186,6 +186,59 @@
                     </div>
                 </header>
 
+                <!-- Dashboard High-Level Insights -->
+                <div
+                    style="display: flex; gap: 1.5rem; margin-bottom: 1.5rem; margin-top: 1rem; align-items: stretch; width: 100%;">
+                    <!-- Active Users Card -->
+                    <div
+                        style="flex: 1; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 8px; padding: 1.2rem; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <div>
+                            <span
+                                style="color: hsl(var(--muted-foreground)); font-size: 0.85rem; font-weight: 500; text-transform: uppercase;">Active
+                                Users</span>
+                            <div id="dashboard-active-users"
+                                style="font-size: 1.4rem; font-weight: 700; color: hsl(var(--foreground)); margin-top: 0.2rem;">
+                                0</div>
+                        </div>
+                        <div
+                            style="background: hsl(var(--primary)/0.15); height: 42px; width: 42px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: hsl(var(--primary));">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <!-- Project Completion Rate Card -->
+                    <div
+                        style="flex: 2; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 8px; padding: 1.2rem; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                                </svg>
+                                <span
+                                    style="color: hsl(var(--muted-foreground)); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Project
+                                    Completion Rate</span>
+                            </div>
+                            <span id="system-completion-text"
+                                style="color: #10b981; font-weight: 700; font-size: 1.4rem;">0%</span>
+                        </div>
+                        <div style="height: 8px; background: hsl(var(--border)); border-radius: 4px; overflow: hidden;">
+                            <div id="system-completion-bar"
+                                style="height: 100%; background: #10b981; width: 0%; transition: width 0.5s ease-in-out;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Slicers / Filters -->
                 <section class="filters-section" id="filters">
                     <div class="filter-group">
@@ -555,11 +608,16 @@
 
                 <!-- Vendor Performance Comparison -->
                 <section class="vendor-section" id="vendor" style="margin-bottom: 2rem;">
-                    <div class="chart-container" style="width: 100%; min-height: 450px;">
-                        <h2 style="display: flex; align-items: center; gap: 10px;">📊 Vendor Performance Comparison</h2>
-                        <div class="vendor-charts-grid">
-                            <div id="vendorTotalChart"></div>
-                            <div id="vendorRunRateChart"></div>
+                    <div class="charts-grid">
+                        <div class="chart-container" style="display: flex; flex-direction: column;">
+                            <h2 style="display: flex; align-items: center; gap: 10px; margin-bottom: 1rem;">📊 Total
+                                Assets Enumerated (Vendor)</h2>
+                            <div id="vendorTotalChart" style="flex: 1; min-height: 350px;"></div>
+                        </div>
+                        <div class="chart-container" style="display: flex; flex-direction: column;">
+                            <h2 style="display: flex; align-items: center; gap: 10px; margin-bottom: 1rem;">⚡ Average
+                                Daily Run Rate (Vendor)</h2>
+                            <div id="vendorRunRateChart" style="flex: 1; min-height: 350px;"></div>
                         </div>
                     </div>
                 </section>

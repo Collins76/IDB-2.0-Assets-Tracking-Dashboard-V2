@@ -822,6 +822,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const boqBuildings = 0;
         const actBuildings = filteredData.reduce((sum, item) => sum + (parseInt(item["No of Buildings Connected to the Pole"]) || 0), 0);
         updateModernCard('buildings', boqBuildings, actBuildings);
+
+        // --- H. Active Users (Dashboard Top Banner) ---
+        // Determine unique users within the current filter scope
+        const actUsers = new Set(filteredData.filter(d => Boolean(d.User)).map(d => d.User)).size;
+        const dashboardActiveUsers = document.getElementById('dashboard-active-users');
+        if (dashboardActiveUsers) {
+            dashboardActiveUsers.textContent = actUsers.toLocaleString();
+        }
     }
 
     function updateModernCard(suffix, boqVal, actVal) {
