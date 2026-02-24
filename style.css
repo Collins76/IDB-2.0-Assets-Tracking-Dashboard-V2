@@ -283,9 +283,7 @@ select {
     gap: 1.5rem;
 }
 
-.small-card {
-    /* Optional: specific styling for small card if needed beyond grid constraint */
-}
+
 
 @media (max-width: 900px) {
     .chart-split-row {
@@ -336,7 +334,7 @@ footer {
 
 /* Compact Table Mode used for DT Analysis */
 #dtTable {
-    font-size: 0.75rem;
+    font-size: 0.70rem;
     table-layout: auto;
     /* Allow column widths to adjust */
 }
@@ -351,7 +349,7 @@ footer {
 /* Specific styles for the compact DT table */
 #dtTable th,
 #dtTable td {
-    padding: 6px 8px;
+    padding: 4px 6px;
     vertical-align: middle;
 }
 
@@ -363,13 +361,13 @@ footer {
 /* Column specific constraints for DT table */
 #dtTable td:nth-child(2) {
     /* DT Name */
-    max-width: 180px;
+    max-width: 160px;
     white-space: normal;
 }
 
 #dtTable td:nth-child(7) {
     /* Field Officers */
-    max-width: 150px;
+    max-width: 140px;
     /* Force truncation width */
     /* Handled by inline style in script.js but good to enforce */
 }

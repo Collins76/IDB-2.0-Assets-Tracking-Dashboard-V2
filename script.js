@@ -18,7 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ]);
         const jesomUsers = new Set([
             'sbolaji', 'omukaila', 'ojamiu', 'jemmanuel', 'foluwafisayo',
-            'yakin', 'ysalaudeen', 'shodimu', 'ajemmanuel', 'ajumobi'
+            'yakin', 'ysalaudeen', 'shodimu', 'ajemmanuel', 'ajumobi',
+            'adamilre', 'adamilare'
         ]);
 
         if (etcUsers.has(user)) return 'ETC Workforce';
@@ -56,7 +57,9 @@ document.addEventListener('DOMContentLoaded', () => {
         'ysalaudeen': 'Yusuf Salaudeen',
         'shodimu': 'Shodimu Bolaji',
         'ajuliet2': 'Ugorchi Amadi',
-        'alucky': 'Lucky Okwuonu'
+        'alucky': 'Lucky Okwuonu',
+        'adamilre': 'Ayorinde Damilare',
+        'adamilare': 'Ayorinde Damilare'
     };
 
     // Helper to simulate issues (for demo purposes)
@@ -1299,7 +1302,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'col-undertaking', label: 'Undertaking', visible: true },
         { id: 'col-vendor', label: 'Vendor', visible: true },
         { id: 'col-users', label: 'Field Officers', visible: true },
-        { id: 'col-boqTotal', label: 'Total (BOQ)', visible: true },
+        { id: 'col-boqTotal', label: 'Ex. Poles', visible: true },
+        { id: 'col-newPoles', label: 'New Poles (Install)', visible: true },
         { id: 'col-actualTotal', label: 'Actual', visible: true },
         { id: 'col-remaining', label: 'Remaining', visible: true },
         { id: 'col-concrete', label: 'Concrete', visible: true },
@@ -1312,6 +1316,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const menu = document.getElementById('columnFilterMenu');
         const btn = document.getElementById('columnFilterBtn');
         if (!menu || !btn) return;
+
+        // Force check for cached HTML that lacks the new header
+        const theadTr = document.querySelector('#dtTable thead tr');
+        if (theadTr && !document.querySelector('#dtTable th.col-newPoles')) {
+            const boqTh = document.querySelector('#dtTable th.col-boqTotal');
+            if (boqTh) {
+                const newPolesTh = document.createElement('th');
+                newPolesTh.className = 'col-newPoles';
+                newPolesTh.textContent = 'New Poles (Install)';
+                boqTh.insertAdjacentElement('afterend', newPolesTh);
+            }
+        }
 
         // Toggle Menu
         btn.addEventListener('click', (e) => {
@@ -1438,163 +1454,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 6. Detailed DT Analysis Table (Enhanced)
-    function renderDTTable() {
-        const tbody = document.querySelector('#dtTable tbody');
-        if (!tbody) return;
-
-        tbody.innerHTML = '';
-        const searchVal = (document.getElementById('dtSearchInput')?.value || '').toLowerCase();
-
-        // 1. Get Enhanced Data (Union of BOQ and Field)
-        const data = getEnhancedDTData();
-
-        // 2. Filter by Search Input (Interactive)
-        const filtered = data.filter(item => {
-            if (!searchVal) return true;
-            return (
-                (item.dtName || '').toLowerCase().includes(searchVal) ||
-                (item.vendor || '').toLowerCase().includes(searchVal) ||
-                (item.feeder || '').toLowerCase().includes(searchVal) ||
-                (item.bu || '').toLowerCase().includes(searchVal) ||
-                (item.undertaking || '').toLowerCase().includes(searchVal) ||
-                item.users.some(u => String(userFullNames[u] || u || '').toLowerCase().includes(searchVal))
-            );
-        });
-
-        // 3. Update Info Count
-        const infoEl = document.getElementById('tableInfo');
-        if (infoEl) infoEl.textContent = `Showing ${filtered.length} of ${data.length} DTs`;
-
-        // 4. Pagination Logic
-        const totalItems = filtered.length;
-        const totalPages = Math.ceil(totalItems / rowsPerPage);
-
-        // Adjust currentPage if out of bounds
-        if (currentPage > totalPages && totalPages > 0) currentPage = totalPages;
-        if (currentPage < 1 && totalPages > 0) currentPage = 1; // Should happen?
-        if (totalPages === 0) currentPage = 1; // If no items, reset to page 1
-
-        const startIndex = (currentPage - 1) * rowsPerPage;
-        const endIndex = startIndex + rowsPerPage;
-        const paginatedData = filtered.slice(startIndex, endIndex);
-
-        // Helper to check visibility
-        const isVisible = (id) => {
-            const col = tableColumns.find(c => c.id === id);
-            return col ? col.visible : true;
-        };
-
-        // 5. Render Rows
-        paginatedData.forEach((row, index) => {
-            const tr = document.createElement('tr');
-
-            // Vendor Tag
-            let vendorClass = '';
-            if (row.vendor === 'ETC Workforce') vendorClass = 'vendor-etc';
-            if (row.vendor === 'Jesom Technology') vendorClass = 'vendor-jesom';
-
-            // Progress Bar / Status Logic
-            const progress = row.boqTotal > 0 ? (row.actualTotal / row.boqTotal) * 100 : 0;
-            let status = 'In Progress';
-            let statusColor = '#f59e0b'; // Orange
-
-            if (row.actualTotal === 0) {
-                status = 'Not Started';
-                statusColor = '#ef4444'; // Red
-            } else if (progress >= 100) {
-                status = 'Completed';
-                statusColor = '#10b981'; // Green
-            } else if (progress > 90) {
-                status = 'Near Completion';
-                statusColor = '#3b82f6'; // Blue
-            }
-
-            // User Names
-            const userNames = row.users.map(u => userFullNames[u] || u).join(', ');
-            // Absolute index for numbering
-            const absIndex = startIndex + index + 1;
-
-            let rowHtml = '';
-
-            if (isVisible('col-index')) rowHtml += `<td class="col-index" style="text-align: center;">${absIndex}</td>`;
-            if (isVisible('col-dtName')) rowHtml += `<td class="col-dtName" style="font-weight: 500; color: #fff;">${row.dtName}</td>`;
-            if (isVisible('col-feeder')) rowHtml += `<td class="col-feeder">${row.feeder}</td>`;
-            if (isVisible('col-bu')) rowHtml += `<td class="col-bu">${row.bu}</td>`;
-            if (isVisible('col-undertaking')) rowHtml += `<td class="col-undertaking">${row.undertaking}</td>`;
-            if (isVisible('col-vendor')) rowHtml += `<td class="col-vendor"><span class="vendor-tag ${vendorClass}">${row.vendor}</span></td>`;
-            if (isVisible('col-users')) rowHtml += `<td class="col-users" style="max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${userNames}">${userNames}</td>`;
-            if (isVisible('col-boqTotal')) rowHtml += `<td class="col-boqTotal" style="text-align: center; font-weight: bold; color: #0EA5E9;">${row.boqTotal}</td>`;
-            if (isVisible('col-actualTotal')) rowHtml += `<td class="col-actualTotal" style="text-align: center;">${row.actualTotal}</td>`;
-            if (isVisible('col-remaining')) rowHtml += `<td class="col-remaining" style="text-align: center; color: #a0a0a0;">${Math.max(0, row.boqTotal - row.actualTotal)}</td>`;
-            if (isVisible('col-concrete')) rowHtml += `<td class="col-concrete" style="text-align: center;">${row.concrete}</td>`;
-            if (isVisible('col-wooden')) rowHtml += `<td class="col-wooden" style="text-align: center;">${row.wooden}</td>`;
-            if (isVisible('col-progress')) rowHtml += `<td class="col-progress" style="width: 70px;">
-                    <div style="display: flex; align-items: center; gap: 4px;">
-                        <div style="flex-grow: 1; height: 4px; background: #333; border-radius: 2px; overflow: hidden;">
-                            <div style="width: ${Math.min(100, progress)}%; height: 100%; background: ${statusColor};"></div>
-                        </div>
-                        <span style="font-size: 0.8em; color: ${statusColor};">${progress.toFixed(0)}%</span>
-                    </div>
-                </td>`;
-            if (isVisible('col-status')) rowHtml += `<td class="col-status"><span style="font-size: 0.8em; padding: 1px 6px; border-radius: 8px; background: ${statusColor}20; color: ${statusColor}; border: 1px solid ${statusColor}40; white-space: nowrap;">${status}</span></td>`;
-
-            tr.innerHTML = rowHtml;
-            tbody.appendChild(tr);
-        });
-
-        // 6. Render Pagination Controls
-        renderPaginationControls(filtered.length);
-    }
-
-    function renderPaginationControls(totalItems) {
-        const container = document.getElementById('paginationControls');
-        if (!container) return;
-        container.innerHTML = '';
-
-        const totalPages = Math.ceil(totalItems / rowsPerPage);
-        if (totalPages <= 1) return;
-
-        const createBtn = (text, page, isActive = false, isDisabled = false) => {
-            const btn = document.createElement('button');
-            btn.className = `page-btn ${isActive ? 'active' : ''}`;
-            btn.textContent = text;
-            if (isDisabled) btn.disabled = true;
-            else {
-                btn.onclick = () => {
-                    currentPage = page;
-                    renderDTTable();
-                };
-            }
-            return btn;
-        };
-
-        // Prev Button
-        container.appendChild(createBtn('<', currentPage - 1, false, currentPage === 1));
-
-        // Page Range Logic (Show up to 6 pages)
-        const maxVisible = 6;
-        let startPage = 1;
-        let endPage = Math.min(totalPages, maxVisible);
-
-        if (currentPage > 3 && totalPages > maxVisible) {
-            // Center user in the window if possible
-            startPage = Math.max(1, currentPage - 2);
-            endPage = Math.min(totalPages, startPage + maxVisible - 1);
-
-            // Adjust start if end is capped
-            if (endPage === totalPages) {
-                startPage = Math.max(1, endPage - maxVisible + 1);
-            }
-        }
-
-        for (let i = startPage; i <= endPage; i++) {
-            container.appendChild(createBtn(i, i, i === currentPage));
-        }
-
-        // Next Button
-        container.appendChild(createBtn('>', currentPage + 1, false, currentPage === totalPages));
-    }
 
     function resetFilters() {
         // 1. Reset View Mode first
@@ -1648,6 +1507,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     users: new Set(),
                     boqTotal: 0, // Will fill from BOQ
                     actualTotal: 0,
+                    newPoles: 0,
                     concrete: 0,
                     wooden: 0
                 };
@@ -1658,7 +1518,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Material
             const mat = String(d["Pole Material"] || d["Material"] || d["Pole_Material"] || "").toLowerCase();
-            const type = String(d["Type of Pole"] || "").toLowerCase();
+            const type = String(d["Type of Pole"] || d["Pole_Type"] || "").toLowerCase();
+            const issue = String(d["Issue_Type"] || "").toLowerCase();
+
             if (mat.includes('concrete') || type.includes('concrete')) map[key].concrete++;
             if (mat.includes('wood') || type.includes('wood')) map[key].wooden++;
         });
@@ -1703,10 +1565,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (selFeeder && selFeeder !== 'All' && feeder !== selFeeder) return;
             if (selDT && selDT !== 'All' && dtName !== selDT) return;
 
+            // Extract New poles and subtract from grand total
+            const originalBoqTotal = parseInt(d["POLES Grand Total"]) || 0;
+            const newPolesBoq = parseInt(d["NEW POLE"] || d["NEW POLES"]) || 0;
+            const boqBalance = Math.max(0, originalBoqTotal - newPolesBoq);
 
             if (map[key]) {
                 // Exists in field data (so it passed field filters)
-                map[key].boqTotal += (parseInt(d["POLES Grand Total"]) || 0);
+                map[key].boqTotal += boqBalance;
+                map[key].newPoles += newPolesBoq;
             } else {
                 // Not in field data.
                 // Only add if we are not strictly filtering by attributes we determine from field (like Vendor, User, Material, BU, UT).
@@ -1735,8 +1602,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         undertaking: "-",
                         vendor: "Pending", // No vendor assigned yet
                         users: [],
-                        boqTotal: (parseInt(d["POLES Grand Total"]) || 0),
+                        boqTotal: boqBalance,
                         actualTotal: 0,
+                        newPoles: newPolesBoq,
                         concrete: 0,
                         wooden: 0
                     };
@@ -1789,6 +1657,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const paginatedRows = filtered.slice(startIndex, endIndex);
 
+        // Helper to check visibility
+        const isVisible = (id) => {
+            const col = tableColumns.find(c => c.id === id);
+            return col ? col.visible : true;
+        };
+
         // 4b. Render Rows
         paginatedRows.forEach((row, index) => {
             const tr = document.createElement('tr');
@@ -1819,19 +1693,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const userNames = row.users.map(u => userFullNames[u] || u).join(', ');
 
             // Add classes for column visibility
-            tr.innerHTML = `
-                <td class="col-index" style="text-align: center;">${globalIndex}</td>
-                <td class="col-dtName" style="font-weight: 500; color: #fff;">${row.dtName}</td>
-                <td class="col-feeder">${row.feeder}</td>
-                <td class="col-bu">${row.bu}</td>
-                <td class="col-undertaking">${row.undertaking}</td>
-                <td class="col-vendor"><span class="vendor-tag ${vendorClass}">${row.vendor}</span></td>
-                <td class="col-users" style="max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${userNames}">${userNames}</td>
-                <td class="col-boqTotal" style="text-align: center; font-weight: bold; color: #0EA5E9;">${row.boqTotal}</td>
-                <td class="col-actualTotal" style="text-align: center;">${row.actualTotal}</td>
-                <td class="col-remaining" style="text-align: center; color: #a0a0a0;">${Math.max(0, row.boqTotal - row.actualTotal)}</td>
-                <td class="col-concrete" style="text-align: center;">${row.concrete}</td>
-                <td class="col-wooden" style="text-align: center;">${row.wooden}</td>
+            let rowHtml = '';
+            if (isVisible('col-index')) rowHtml += `<td class="col-index" style="text-align: center;">${globalIndex}</td>`;
+            if (isVisible('col-dtName')) rowHtml += `<td class="col-dtName" style="font-weight: 500; color: #fff;">${row.dtName}</td>`;
+            if (isVisible('col-feeder')) rowHtml += `<td class="col-feeder">${row.feeder}</td>`;
+            if (isVisible('col-bu')) rowHtml += `<td class="col-bu">${row.bu}</td>`;
+            if (isVisible('col-undertaking')) rowHtml += `<td class="col-undertaking">${row.undertaking}</td>`;
+            if (isVisible('col-vendor')) rowHtml += `<td class="col-vendor"><span class="vendor-tag ${vendorClass}">${row.vendor}</span></td>`;
+            if (isVisible('col-users')) rowHtml += `<td class="col-users" style="max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${userNames}">${userNames}</td>`;
+            if (isVisible('col-boqTotal')) rowHtml += `<td class="col-boqTotal" style="text-align: center; font-weight: bold; color: #0EA5E9;">${row.boqTotal}</td>`;
+            if (isVisible('col-newPoles')) rowHtml += `<td class="col-newPoles" style="text-align: center;">${row.newPoles}</td>`;
+            if (isVisible('col-actualTotal')) rowHtml += `<td class="col-actualTotal" style="text-align: center;">${row.actualTotal}</td>`;
+            if (isVisible('col-remaining')) rowHtml += `<td class="col-remaining" style="text-align: center; color: #a0a0a0;">${Math.max(0, row.boqTotal - row.actualTotal)}</td>`;
+            if (isVisible('col-concrete')) rowHtml += `<td class="col-concrete" style="text-align: center;">${row.concrete}</td>`;
+            if (isVisible('col-wooden')) rowHtml += `<td class="col-wooden" style="text-align: center;">${row.wooden}</td>`;
+            if (isVisible('col-progress')) rowHtml += `
                 <td class="col-progress" style="width: 70px;">
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <div style="flex-grow: 1; height: 4px; background: #333; border-radius: 2px; overflow: hidden;">
@@ -1839,9 +1715,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <span style="font-size: 0.8em; color: ${statusColor};">${progress.toFixed(0)}%</span>
                     </div>
-                </td>
-                <td class="col-status"><span style="font-size: 0.8em; padding: 1px 6px; border-radius: 8px; background: ${statusColor}20; color: ${statusColor}; border: 1px solid ${statusColor}40; white-space: nowrap;">${status}</span></td>
-            `;
+                </td>`;
+            if (isVisible('col-status')) rowHtml += `<td class="col-status"><span style="font-size: 0.8em; padding: 1px 6px; border-radius: 8px; background: ${statusColor}20; color: ${statusColor}; border: 1px solid ${statusColor}40; white-space: nowrap;">${status}</span></td>`;
+
+            tr.innerHTML = rowHtml;
             tbody.appendChild(tr);
         });
 
@@ -2467,7 +2344,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const headers = ["DT Name", "Feeder", "BU", "Undertaking", "Vendor", "Users", "BOQ Total", "Actual Total", "Gap", "Concrete", "Wooden"];
+            const headers = ["DT Name", "Feeder", "BU", "Undertaking", "Vendor", "Users", "Ex. Poles", "Actual Total", "Gap", "Concrete", "Wooden"];
 
             const csvRows = [headers.join(',')];
 
