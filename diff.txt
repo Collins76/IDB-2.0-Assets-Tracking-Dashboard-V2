@@ -1,0 +1,9 @@
+diff --git a/index.html b/index.html
+index 3ceb487..8f17913 100644
+Binary files a/index.html and b/index.html differ
+diff --git a/script.js b/script.js
+index 8d4b088..8b8e98d 100644
+Binary files a/script.js and b/script.js differ
+diff --git a/style.css b/style.css
+index 1937882..476c912 100644
+Binary files a/style.css and b/style.css differ
