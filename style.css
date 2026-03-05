@@ -275,8 +275,24 @@ select {
     gap: 1.5rem;
 }
 
+.chart-split-row {
+    grid-column: span 2;
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    /* Give more space to the line chart, less to doughnut */
+    gap: 1.5rem;
+}
+
+
+
+@media (max-width: 900px) {
+    .chart-split-row {
+        grid-template-columns: 1fr;
+    }
+}
+
 .chart-container h2 {
-    font-size: 1.2rem;
+    font-size: 1rem;
     margin-bottom: 1rem;
     color: var(--text-color);
     border-bottom: 1px solid var(--border-color);
@@ -300,34 +316,27 @@ footer {
 
 /* Data Table */
 .table-section {
-    padding: 0 40px 40px;
+    padding: 0 10px 40px;
+    /* Reduced from 0 40px 40px */
+}
+
+.table-section .chart-container {
+    padding: 0.5rem;
+    /* Reduced from 1.5rem */
 }
 
 .data-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 1rem;
+    margin-top: 0.5rem;
     font-size: 0.95rem;
 }
 
 /* Compact Table Mode used for DT Analysis */
 #dtTable {
-    font-size: 0.75rem;
+    font-size: 0.70rem;
     table-layout: auto;
-    min-width: 100%;
-    width: 100%;
-}
-
-.table-section {
-    padding: 0 0 40px;
-    width: 100%;
-}
-
-/* Table wrapper full-bleed */
-.chart-container.wide.table-wrapper {
-    overflow-x: auto;
-    width: 100%;
-    max-width: 100%;
+    /* Allow column widths to adjust */
 }
 
 .data-table th,
@@ -340,7 +349,7 @@ footer {
 /* Specific styles for the compact DT table */
 #dtTable th,
 #dtTable td {
-    padding: 6px 8px;
+    padding: 4px 6px;
     vertical-align: middle;
 }
 
@@ -352,13 +361,13 @@ footer {
 /* Column specific constraints for DT table */
 #dtTable td:nth-child(2) {
     /* DT Name */
-    max-width: 180px;
+    max-width: 160px;
     white-space: normal;
 }
 
 #dtTable td:nth-child(7) {
     /* Field Officers */
-    max-width: 150px;
+    max-width: 140px;
     /* Force truncation width */
     /* Handled by inline style in script.js but good to enforce */
 }
@@ -1056,141 +1065,24 @@ footer {
     accent-color: #3b82f6;
 }
 
-/* --- Search Bar & Intellisense --- */
+/* --- Search Suggestions --- */
 .search-wrapper {
     position: relative;
-    flex: 1;
-}
-
-.search-input-container {
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-
-.search-input-container svg.search-icon {
-    position: absolute;
-    left: 12px;
-    color: #64748b;
-    pointer-events: none;
-    flex-shrink: 0;
-}
-
-#dtSearchInput {
-    width: 100%;
-    min-width: 260px;
-    padding: 0.6rem 0.75rem 0.6rem 38px;
-    border-radius: 8px;
-    border: 1px solid #334155;
-    background: #1a1d23;
-    color: #fff;
-    font-size: 0.95rem;
-    outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    font-family: inherit;
-}
-
-#dtSearchInput:focus {
-    border-color: #0EA5E9;
-    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
-}
-
-#dtSearchInput::placeholder {
-    color: #64748b;
 }
 
 .search-suggestions {
     position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
+    top: 100%;
     right: 0;
-    min-width: 280px;
-    max-height: 320px;
+    width: 250px;
+    max-height: 300px;
     overflow-y: auto;
-    background-color: #1e2530;
-    border: 1px solid #2d3f55;
-    border-radius: 10px;
-    z-index: 9999;
-    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6);
+    background-color: #1e1e24;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    z-index: 999;
+    margin-top: 5px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
     display: none;
     flex-direction: column;
-    padding: 6px;
-}
-
-.search-suggestions-header {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    color: #4b6070;
-    letter-spacing: 0.8px;
-    padding: 4px 8px 6px;
-    border-bottom: 1px solid #2d3f55;
-    margin-bottom: 4px;
-}
-
-.search-suggestion-item {
-    padding: 8px 12px;
-    cursor: pointer;
-    border-radius: 6px;
-    color: #cbd5e1;
-    font-size: 0.88rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    transition: background 0.15s;
-    gap: 8px;
-}
-
-.search-suggestion-item:hover,
-.search-suggestion-item.focused {
-    background-color: rgba(14, 165, 233, 0.15);
-    color: white;
-}
-
-.search-suggestion-item mark {
-    background: transparent;
-    color: #0EA5E9;
-    font-weight: 700;
-}
-
-.suggestion-label {
-    flex: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.suggestion-type {
-    font-size: 0.68em;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    flex-shrink: 0;
-    white-space: nowrap;
-}
-
-.suggestion-type.type-dt {
-    background: rgba(14, 165, 233, 0.15);
-    color: #0EA5E9;
-}
-
-.suggestion-type.type-feeder {
-    background: rgba(16, 185, 129, 0.15);
-    color: #10b981;
-}
-
-.suggestion-type.type-vendor {
-    background: rgba(249, 115, 22, 0.15);
-    color: #f97316;
-}
-
-.suggestion-type.type-user {
-    background: rgba(168, 85, 247, 0.15);
-    color: #a855f7;
-}
-
-.suggestion-type.type-bu {
-    background: rgba(245, 158, 11, 0.15);
-    color: #f59e0b;
 }
