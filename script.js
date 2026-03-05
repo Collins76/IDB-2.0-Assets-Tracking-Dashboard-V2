@@ -18,20 +18,55 @@ document.addEventListener('DOMContentLoaded', () => {
         ]);
         const jesomUsers = new Set([
             'sbolaji', 'omukaila', 'ojamiu', 'jemmanuel', 'foluwafisayo',
-            'yakin', 'ysalaudeen', 'shodimu', 'ajemmanuel', 'ajumobi'
+            'yakin', 'ysalaudeen', 'shodimu', 'ajemmanuel', 'ajumobi',
+            'adamilare'
+        ]);
+        // Ikeja Electric users — matched by system username (as stored in the data)
+        const ikejaUsers = new Set([
+            // Original display-name format (legacy fallback)
+            'kamoru adebayo', 'taiwo tope', 'rasaq akinloye', 'von ifeanyi', 'olatunji sunday',
+            'williams adegoke', 'olumide moses', 'david oluwaseun', 'douglas owoicho', 'uche ifeanyichukwu',
+            'dan ekpe', 'odeniya taiwo', 'ismail akintola', 'richard abayomi', 'oyinloye john',
+            'rufus oluwasoji', 'emmma ikechukwu', 'goddey akhimien', 'stanley madu', 'moses akpan',
+            'sanuolu julius', 'daniel uche', 'olaiya okikioluwa', 'michael ikhuoso', 'wasiu omotayo',
+            'yusuf adewale', 'ola emmanuel', 'nnadi benjamin', 'akinmayowa oluwaseun', 'olabode taofik',
+            'matthew omolayo', 'demilade olujide', 'lukmon kugbayi', 'kehinde erinle', 'timileyin solomon',
+            'adeyemi alaba', 'patrick ralph', 'timileyin adegolu', 'bayo ayodele', 'forcados johnson',
+            'adeyemo temidayo', 'ojonumi samuel', 'salaudeen abdulmuiz', 'emmanuel obasi', 'opeyemi adeagbo',
+            'ajao mustapha', 'adesanya adegbenro', 'aladesanmi luqman', 'ugochukwu stephen', 'john utibe',
+            'olumide olawaiye', 'adegbenro adeola', 'chukwudi fonatius', 'balogun bankole', 'gbenga abefe',
+            'moses adedayo', 'somadina martins', 'akande adbulwasiu', 'solomon thompson', 'alawode omotoyosi',
+            'akinbode quadri', 'alowolodu julius', 'david gabriel', 'chioma ogochukwu', 'mustapha ajao',
+            'chika ejindu', 'osaretin edobor', 'olumuyiwa oladapo', 'eunice odiana',
+            'john mark', 'akinyele ezekiel', 'pius onwubiko',
+            // System usernames from the field data (as they actually appear in the dataset)
+            'kadebayo', 'ttope', 'rakinloye', 'vifeanyi', 'osunday', 'wadegoke', 'omoses',
+            'doluwaseun', 'dowoicho', 'uifeanyichukwu', 'dekpe', 'odtaiwo', 'iakintola',
+            'rabayomi', 'ojohn', 'roluwasoji', 'eikechukwu', 'gakhimien', 'smadu', 'makpan',
+            'msanuolu', 'mdaniel', 'molaiya', 'mmichael', 'mwasiu', 'myusuf', 'mola', 'mnnadi',
+            'makinmayowa', 'molabode', 'mmatthew', 'mdemilade', 'lkugbayi', 'kerinle',
+            'tsolomon', 'aalaba', 'pralph', 'tadegolu', 'bayodele', 'fjohnson', 'atemidayo',
+            'osamuel', 'sabdulmuiz', 'eobasi', 'oadeagbo', 'ajmustapha', 'dobademi',
+            'aluqman', 'ustephen', 'jutibe', 'oolawaiye', 'aadeola', 'cfonatius', 'bbankole',
+            'gabefe', 'madedayo', 'smartins', 'aabbul', 'sthompson', 'aomotoyo', 'aquadri',
+            'ajulius', 'dgabriel', 'cogochukwu', 'majao', 'cejindu', 'oedobor', 'ooladapo',
+            'dolujide', 'eodiana', 'jmark', 'aezekiel', 'ponwubiko'
         ]);
 
         if (etcUsers.has(user)) return 'ETC Workforce';
         if (jesomUsers.has(user)) return 'Jesom Technology';
+        if (user && ikejaUsers.has(user.toLowerCase())) return 'Ikeja Electric';
 
         // Fallback heuristic: Many ETC users start with 'a' followed by a name
-        if (user.startsWith('a') && user.length > 3) return 'ETC Workforce';
+        if (user && user.startsWith('a') && user.length > 3) return 'ETC Workforce';
 
-        return 'Other';
+        // Default unmapped users to Ikeja Electric (no 'Other' classification)
+        return 'Ikeja Electric';
     }
 
     // User Name Mapping
     const userFullNames = {
+        // ETC Workforce users
         'aosimen': 'Osimen Faith',
         'aayogu': 'Ayogu Peace',
         'aoluwatobi': 'Oluwatobi Akingbade',
@@ -46,7 +81,9 @@ document.addEventListener('DOMContentLoaded', () => {
         'aayokanmi': 'Agba Ayokunmi',
         'adamilola2': 'Awotipe Damilola',
         'aoluwadamilare': 'Akintola Oluwadamilare',
+        'adamilare': 'Ayorinde Damilare',
         'apatrick': 'Emmanuel Patrick',
+        // Jesom Technology users
         'omukaila': 'Olusanjo Mukaila',
         'sbolaji': 'Shodimu Bolaji',
         'ojamiu': 'Oyebanjo Jamiu',
@@ -56,8 +93,118 @@ document.addEventListener('DOMContentLoaded', () => {
         'ysalaudeen': 'Yusuf Salaudeen',
         'shodimu': 'Shodimu Bolaji',
         'ajuliet2': 'Ugorchi Amadi',
-        'alucky': 'Lucky Okwuonu'
+        'alucky': 'Lucky Okwuonu',
+        // Ikeja Electric users — system username → Full Display Name
+        'kadebayo': 'Kamoru Adebayo',
+        'ttope': 'Taiwo Tope',
+        'rakinloye': 'Rasaq Akinloye',
+        'vifeanyi': 'Von Ifeanyi',
+        'osunday': 'Olatunji Sunday',
+        'wadegoke': 'Williams Adegoke',
+        'omoses': 'Olumide Moses',
+        'doluwaseun': 'David Oluwaseun',
+        'dowoicho': 'Douglas Owoicho',
+        'uifeanyichukwu': 'Uche Ifeanyichukwu',
+        'dekpe': 'Dan Ekpe',
+        'odtaiwo': 'Odeniya Taiwo',
+        'iakintola': 'Ismail Akintola',
+        'rabayomi': 'Richard Abayomi',
+        'ojohn': 'Oyinloye John',
+        'roluwasoji': 'Rufus Oluwasoji',
+        'eikechukwu': 'Emma Ikechukwu',
+        'gakhimien': 'Goddey Akhimien',
+        'smadu': 'Stanley Madu',
+        'makpan': 'Moses Akpan',
+        'msanuolu': 'Sanuolu Julius',
+        'mdaniel': 'Daniel Uche',
+        'molaiya': 'Olaiya Okikioluwa',
+        'mmichael': 'Michael Ikhuoso',
+        'mwasiu': 'Wasiu Omotayo',
+        'myusuf': 'Yusuf Adewale',
+        'mola': 'Ola Emmanuel',
+        'mnnadi': 'Nnadi Benjamin',
+        'makinmayowa': 'Akinmayowa Oluwaseun',
+        'molabode': 'Olabode Taofik',
+        'mmatthew': 'Matthew Omolayo',
+        'mdemilade': 'Demilade Olujide',
+        'lkugbayi': 'Lukmon Kugbayi',
+        'kerinle': 'Kehinde Erinle',
+        'tsolomon': 'Timileyin Solomon',
+        'aalaba': 'Adeyemi Alaba',
+        'pralph': 'Patrick Ralph',
+        'tadegolu': 'Timileyin Adegolu',
+        'bayodele': 'Bayo Ayodele',
+        'fjohnson': 'Forcados Johnson',
+        'atemidayo': 'Adeyemo Temidayo',
+        'osamuel': 'Ojonumi Samuel',
+        'sabdulmuiz': 'Salaudeen Abdulmuiz',
+        'eobasi': 'Emmanuel Obasi',
+        'oadeagbo': 'Opeyemi Adeagbo',
+        'ajmustapha': 'Ajao Mustapha',
+        'dobademi': 'Adesanya Adegbenro',
+        'aluqman': 'Aladesanmi Luqman',
+        'ustephen': 'Ugochukwu Stephen',
+        'jutibe': 'John Utibe',
+        'oolawaiye': 'Olumide Olawaiye',
+        'aadeola': 'Adegbenro Adeola',
+        'cfonatius': 'Chukwudi Fonatius',
+        'bbankole': 'Balogun Bankole',
+        'gabefe': 'Gbenga Abefe',
+        'madedayo': 'Moses Adedayo',
+        'smartins': 'Somadina Martins',
+        'aabbul': 'Akande Abdulwasiu',
+        'sthompson': 'Solomon Thompson',
+        'aomotoyo': 'Alawode Omotoyosi',
+        'aquadri': 'Akinbode Quadri',
+        'ajulius': 'Alowolodu Julius',
+        'dgabriel': 'David Gabriel',
+        'cogochukwu': 'Chioma Ogochukwu',
+        'majao': 'Mustapha Ajao',
+        'cejindu': 'Chika Ejindu',
+        'oedobor': 'Osaretin Edobor',
+        'ooladapo': 'Olumuyiwa Oladapo',
+        'dolujide': 'Demilade Olujide',
+        'eodiana': 'Eunice Odiana',
+        'jmark': 'John Mark',
+        'aezekiel': 'Akinyele Ezekiel',
+        'ponwubiko': 'Pius Onwubiko'
     };
+
+    // Also register Ikeja Electric display names (for legacy data stored as full names)
+    [
+        'Kamoru Adebayo', 'Taiwo Tope', 'Rasaq Akinloye', 'Von Ifeanyi', 'Olatunji Sunday',
+        'Williams Adegoke', 'Olumide Moses', 'David Oluwaseun', 'Douglas Owoicho', 'Uche Ifeanyichukwu',
+        'Dan Ekpe', 'Odeniya Taiwo', 'Ismail Akintola', 'Richard Abayomi', 'Oyinloye John',
+        'Rufus Oluwasoji', 'Emma Ikechukwu', 'Goddey Akhimien', 'Stanley Madu', 'Moses Akpan',
+        'Sanuolu Julius', 'Daniel Uche', 'Olaiya Okikioluwa', 'Michael Ikhuoso', 'Wasiu Omotayo',
+        'Yusuf Adewale', 'Ola Emmanuel', 'Nnadi Benjamin', 'Akinmayowa Oluwaseun', 'Olabode Taofik',
+        'Matthew Omolayo', 'Demilade Olujide', 'Lukmon Kugbayi', 'Kehinde Erinle', 'Timileyin Solomon',
+        'Adeyemi Alaba', 'Patrick Ralph', 'Timileyin Adegolu', 'Bayo Ayodele', 'Forcados Johnson',
+        'Adeyemo Temidayo', 'Ojonumi Samuel', 'Salaudeen Abdulmuiz', 'Emmanuel Obasi', 'Opeyemi Adeagbo',
+        'Ajao Mustapha', 'Adesanya Adegbenro', 'Aladesanmi Luqman', 'Ugochukwu Stephen', 'John Utibe',
+        'Olumide Olawaiye', 'Adegbenro Adeola', 'Chukwudi Fonatius', 'Balogun Bankole', 'Gbenga Abefe',
+        'Moses Adedayo', 'Somadina Martins', 'Akande Abdulwasiu', 'Solomon Thompson', 'Alawode Omotoyosi',
+        'Akinbode Quadri', 'Alowolodu Julius', 'David Gabriel', 'Chioma Ogochukwu', 'Mustapha Ajao',
+        'Chika Ejindu', 'Osaretin Edobor', 'Olumuyiwa Oladapo', 'Eunice Odiana',
+        'John Mark', 'Akinyele Ezekiel', 'Pius Onwubiko'
+    ].forEach(name => {
+        userFullNames[name.toLowerCase()] = name;
+        userFullNames[name] = name;
+    });
+
+    // ─── Case-Insensitive Name Resolver ───────────────────────────────────────
+    // The actual data stores usernames with mixed casing (e.g. 'KAdebayo', 'TTOPE').
+    // Our dictionary keys are always lowercase, so a direct lookup fails.
+    // This helper always resolves to the correct full display name.
+    function getDisplayName(username) {
+        if (!username) return '';
+        // 1. Exact match (handles already-mapped full-name keys like 'Kamoru Adebayo')
+        if (userFullNames[username]) return userFullNames[username];
+        // 2. Lowercase match (handles all our standard lowercase keys)
+        if (userFullNames[username.toLowerCase()]) return userFullNames[username.toLowerCase()];
+        // 3. Fallback: return the raw username as-is
+        return username;
+    }
 
     // Helper to simulate issues (for demo purposes)
     function simulateIssue(item) {
@@ -302,7 +449,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     contextData.forEach(d => counts[d.User] = (counts[d.User] || 0) + 1);
                     const sorted = Object.entries(counts).sort((a, b) => (a[1] - b[1]) * sortMult);
 
-                    const list = sorted.slice(0, customLimit).map((u, i) => `${i + 1}. ${userFullNames[u[0]] || u[0]} (${formatNum(u[1])})`).join('<br>');
+                    const list = sorted.slice(0, customLimit).map((u, i) => `${i + 1}. ${getDisplayName(u[0])} (${formatNum(u[1])})`).join('<br>');
                     const contextStr = foundVendor ? ` in **${foundVendor}**` : "";
 
                     answer = `Here are the **${adj} ${customLimit} Field Officers**${contextStr}:<br>${list}`;
@@ -367,7 +514,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const userRecs = data.filter(d => d.User === userId);
                     if (userRecs.length > 0) {
                         const dates = new Set(userRecs.map(d => d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : ''));
-                        answer = `**${userFullNames[userId] || userId}** has captured **${userRecs.length} assets** over ${dates.size} days.`;
+                        answer = `**${getDisplayName(userId)}** has captured **${userRecs.length} assets** over ${dates.size} days.`;
                     } else {
                         answer = `I found user "${closeUser}" but they have no records in this dataset.`;
                     }
@@ -502,7 +649,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Populate Vendor Filter (Fixed list based on global data)
         vendorSelect.innerHTML = '<option value="All">All Vendors</option>';
-        const vendors = [...new Set(globalData.map(item => item["Vendor_Name"]))].filter(Boolean).sort();
+        const vendorsSet = new Set(globalData.map(item => item["Vendor_Name"]));
+        vendorsSet.add('Ikeja Electric'); // Manually append to ensure it is part of the filter list
+        const vendors = [...vendorsSet].filter(Boolean).sort();
         vendors.forEach(item => {
             const opt = document.createElement('option');
             opt.value = item;
@@ -564,11 +713,49 @@ document.addEventListener('DOMContentLoaded', () => {
         const bus = [...new Set(data.map(item => item["Bussines Unit"]))].filter(Boolean).sort();
         const uts = [...new Set(data.map(item => item["Undertaking"]))].filter(Boolean).sort();
 
-        const users = [...new Set(data.map(item => item["User"]))].filter(Boolean)
-            .map(username => ({
-                id: username,
-                name: userFullNames[username] || username
-            }))
+        const userSet = new Set(data.map(item => item["User"]));
+        const currentVendor = document.getElementById('vendorFilter').value;
+        if (currentVendor === 'All' || currentVendor === 'Ikeja Electric') {
+            // Add Ikeja Electric system usernames to the user filter
+            [
+                'kadebayo', 'ttope', 'rakinloye', 'vifeanyi', 'osunday', 'wadegoke', 'omoses',
+                'doluwaseun', 'dowoicho', 'uifeanyichukwu', 'dekpe', 'odtaiwo', 'iakintola',
+                'rabayomi', 'ojohn', 'roluwasoji', 'eikechukwu', 'gakhimien', 'smadu', 'makpan',
+                'msanuolu', 'mdaniel', 'molaiya', 'mmichael', 'mwasiu', 'myusuf', 'mola', 'mnnadi',
+                'makinmayowa', 'molabode', 'mmatthew', 'mdemilade', 'lkugbayi', 'kerinle',
+                'tsolomon', 'aalaba', 'pralph', 'tadegolu', 'bayodele', 'fjohnson', 'atemidayo',
+                'osamuel', 'sabdulmuiz', 'eobasi', 'oadeagbo', 'ajmustapha', 'dobademi',
+                'aluqman', 'ustephen', 'jutibe', 'oolawaiye', 'aadeola', 'cfonatius', 'bbankole',
+                'gabefe', 'madedayo', 'smartins', 'aabbul', 'sthompson', 'aomotoyo', 'aquadri',
+                'ajulius', 'dgabriel', 'cogochukwu', 'majao', 'cejindu', 'oedobor', 'ooladapo',
+                'dolujide', 'eodiana', 'jmark', 'aezekiel', 'ponwubiko'
+            ].forEach(n => userSet.add(n));
+        }
+
+        // Build set of usernames that actually have data records in this dataset
+        const usersWithData = new Set(data.map(item => item['User']).filter(Boolean));
+
+        // Map all raw ids to their resolved display names, then deduplicate.
+        // For each unique display name we keep ONE entry — preferring the id that has
+        // actual data records (so the filter works when the user selects a name).
+        const seenDisplayNames = new Map(); // displayName → best {id, name, hasData}
+
+        [...userSet].filter(Boolean).forEach(username => {
+            const displayName = getDisplayName(username);
+            if (!displayName) return;
+
+            const hasData = usersWithData.has(username);
+            const existing = seenDisplayNames.get(displayName);
+
+            if (!existing) {
+                seenDisplayNames.set(displayName, { id: username, name: displayName, hasData });
+            } else if (!existing.hasData && hasData) {
+                // Prefer the entry that actually has records in the dataset
+                seenDisplayNames.set(displayName, { id: username, name: displayName, hasData });
+            }
+        });
+
+        const users = [...seenDisplayNames.values()]
             .sort((a, b) => a.name.localeCompare(b.name));
 
         const dts = [...new Set(data.map(item => item["DT Name"]))].filter(Boolean).sort();
@@ -770,6 +957,27 @@ document.addEventListener('DOMContentLoaded', () => {
         // Helper to formatting numbers
         const fmt = n => n ? n.toLocaleString() : '0';
 
+        // Update Top Cards
+        const topActiveEl = document.getElementById('topCardActiveUsers');
+        if (topActiveEl) {
+            const activeUsersCount = new Set(filteredData.map(d => d.User).filter(Boolean)).size;
+            topActiveEl.textContent = activeUsersCount.toLocaleString();
+        }
+
+        const topCompRateEl = document.getElementById('topCardCompletionRate');
+        const topCompBarEl = document.getElementById('topCardCompletionBar');
+        if (topCompRateEl && topCompBarEl) {
+            let completionRate = 0;
+            const actRecords = filteredData.length;
+            const totalBoq = boqData.reduce((sum, d) => sum + (parseInt(d["POLES Grand Total"]) || 0), 0);
+            if (totalBoq > 0) {
+                completionRate = (actRecords / totalBoq) * 100;
+            }
+            if (completionRate > 100) completionRate = 100;
+            topCompRateEl.textContent = completionRate.toFixed(1) + '%';
+            topCompBarEl.style.width = completionRate + '%';
+        }
+
         // 1. Calculate Metrics
 
         // --- A. Records (Poles) ---
@@ -873,7 +1081,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sortedUsers = Object.entries(userCounts).sort((a, b) => b[1] - a[1]);
         const xUsernames = sortedUsers.map(u => u[0]);
         // Map usernames to full names, fallback to username if not found
-        const xLabels = xUsernames.map(u => userFullNames[u] || u);
+        const xLabels = xUsernames.map(u => getDisplayName(u));
         const y = sortedUsers.map(u => u[1]);
 
         // Assign colors based on vendor
@@ -919,14 +1127,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. Project Velocity (Area Chart Comparison)
     function renderProjectVelocityChart() {
         // Group by Date and Vendor
-        const dateVendorCounts = {}; // { "date": { "ETC": count, "Jesom": count } }
+        const dateVendorCounts = {}; // { "date": { "ETC": count, "Jesom": count, "Ikeja": count } }
 
         filteredData.forEach(d => {
-            const date = d["Date/timestamp"].split(' ')[0]; // Extract Date part
+            const date = d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : 'Unknown'; // Extract Date part
             const vendor = d.Vendor_Name;
 
             if (!dateVendorCounts[date]) {
-                dateVendorCounts[date] = { 'ETC Workforce': 0, 'Jesom Technology': 0, 'Other': 0 };
+                dateVendorCounts[date] = { 'ETC Workforce': 0, 'Jesom Technology': 0, 'Ikeja Electric': 0, 'Other': 0 };
             }
             if (dateVendorCounts[date][vendor] !== undefined) {
                 dateVendorCounts[date][vendor]++;
@@ -941,6 +1149,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const yETC = sortedDates.map(date => dateVendorCounts[date]['ETC Workforce']);
         const yJesom = sortedDates.map(date => dateVendorCounts[date]['Jesom Technology']);
+        const yIkeja = sortedDates.map(date => dateVendorCounts[date]['Ikeja Electric']);
 
         const traceETC = {
             x: sortedDates,
@@ -968,6 +1177,19 @@ document.addEventListener('DOMContentLoaded', () => {
             marker: { size: 6 }
         };
 
+        const traceIkeja = {
+            x: sortedDates,
+            y: yIkeja,
+            name: 'Ikeja Electric (Green)',
+            type: 'scatter',
+            mode: 'lines+markers+text',
+            text: yIkeja.map(String),
+            textposition: 'top center',
+            fill: 'tozeroy',
+            line: { color: '#10b981' }, // Green
+            marker: { size: 6 }
+        };
+
         const layout = {
             background_color: '#333333', // Dark background for chart area per image appearance (optional but sticking to theme first)
             paper_bgcolor: 'rgba(0,0,0,0)',
@@ -984,7 +1206,7 @@ document.addEventListener('DOMContentLoaded', () => {
             legend: { orientation: "h", y: -0.2 }
         };
 
-        Plotly.newPlot('projectVelocityChart', [traceETC, traceJesom], layout, { responsive: true });
+        Plotly.newPlot('projectVelocityChart', [traceETC, traceJesom, traceIkeja], layout, { responsive: true });
     }
 
     // 3. Pole Type Distribution (highcharts 3D Pie Chart)
@@ -1078,7 +1300,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Prepare Traces (one per issue type)
         const traces = issueTypes.map(issue => {
             return {
-                x: sortedUsers.map(u => userFullNames[u] || u),
+                x: sortedUsers.map(u => getDisplayName(u)),
                 y: sortedUsers.map(u => userIssues[u][issue] || 0),
                 name: issue,
                 type: 'bar'
@@ -1136,12 +1358,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // Track records and unique (User + Date) combinations for Man-Days
         const vendorData = {
             'ETC Workforce': { records: 0, manDays: new Set() },
-            'Jesom Technology': { records: 0, manDays: new Set() }
+            'Jesom Technology': { records: 0, manDays: new Set() },
+            'Ikeja Electric': { records: 0, manDays: new Set() }
         };
 
         filteredData.forEach(d => {
             const vendor = d.Vendor_Name;
-            const date = d["Date/timestamp"].split(' ')[0];
+            const date = d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : 'Unknown';
             const user = d.User;
 
             if (vendorData[vendor]) {
@@ -1150,7 +1373,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        const vendors = ['ETC Workforce', 'Jesom Technology'];
+        const vendors = ['ETC Workforce', 'Jesom Technology', 'Ikeja Electric'];
 
         // Data for Chart 1: Total Records
         const totalRecords = vendors.map(v => vendorData[v].records);
@@ -1163,6 +1386,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const blueColor = '#0EA5E9'; // e.g. bright blue
         const redColor = '#f97316'; // Jesom Orange (formerly red)
+        const greenColor = '#10b981'; // Ikeja Green
 
         // --- Chart 1: Total Records ---
         const traceTotal = {
@@ -1172,7 +1396,7 @@ document.addEventListener('DOMContentLoaded', () => {
             text: totalRecords.map(String),
             textposition: 'auto',
             marker: {
-                color: [blueColor, redColor]
+                color: [blueColor, redColor, greenColor]
             }
         };
 
@@ -1196,7 +1420,7 @@ document.addEventListener('DOMContentLoaded', () => {
             text: runRates.map(v => v.toFixed(1)),
             textposition: 'auto',
             marker: {
-                color: [blueColor, redColor]
+                color: [blueColor, redColor, greenColor]
             },
             name: 'Run Rate'
         };
@@ -1205,7 +1429,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const targetLine = {
             type: 'line',
             x0: -0.5,
-            x1: 1.5,
+            x1: 2.5,
             y0: 50,
             y1: 50,
             line: {
@@ -1260,7 +1484,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 (item.feeder || '').toLowerCase().includes(searchVal) ||
                 (item.bu || '').toLowerCase().includes(searchVal) ||
                 (item.undertaking || '').toLowerCase().includes(searchVal) ||
-                item.users.some(u => String(userFullNames[u] || u || '').toLowerCase().includes(searchVal))
+                item.users.some(u => String(getDisplayName(u) || '').toLowerCase().includes(searchVal))
             );
         });
 
@@ -1307,7 +1531,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // User Names
-            const userNames = row.users.map(u => userFullNames[u] || u).join(', ');
+            const userNames = row.users.map(u => getDisplayName(u)).join(', ');
             // Absolute index for numbering
             const absIndex = startIndex + index + 1;
 
@@ -1441,6 +1665,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     vendor: d["Vendor_Name"] || "-",
                     users: new Set(),
                     boqTotal: 0, // Will fill from BOQ
+                    newPoles: 0, // New Poles (Install)
                     actualTotal: 0,
                     concrete: 0,
                     wooden: 0
@@ -1449,6 +1674,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             map[key].actualTotal++;
             map[key].users.add(d.User);
+
+            // New Poles (Install)
+            const poleType = String(d["Pole_Type"] || d["Type of Pole"] || "").toLowerCase();
+            const issueType = String(d["Issue_Type"] || "").toLowerCase();
+            if (poleType.includes('new') || issueType.includes('new')) map[key].newPoles++;
 
             // Material
             const mat = String(d["Pole Material"] || d["Material"] || d["Pole_Material"] || "").toLowerCase();
@@ -1530,6 +1760,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         vendor: "Pending", // No vendor assigned yet
                         users: [],
                         boqTotal: (parseInt(d["POLES Grand Total"]) || 0),
+                        newPoles: (parseInt(d["NEW POLE"]) || 0),
                         actualTotal: 0,
                         concrete: 0,
                         wooden: 0
@@ -1562,7 +1793,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return (
                 (item.dtName || '').toLowerCase().includes(searchVal) ||
                 (item.vendor || '').toLowerCase().includes(searchVal) ||
-                item.users.some(u => String(userFullNames[u] || u || '').toLowerCase().includes(searchVal))
+                item.users.some(u => String(getDisplayName(u) || '').toLowerCase().includes(searchVal))
             );
         });
 
@@ -1610,7 +1841,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // User Names
-            const userNames = row.users.map(u => userFullNames[u] || u).join(', ');
+            const userNames = row.users.map(u => getDisplayName(u)).join(', ');
 
             // Add classes for column visibility
             tr.innerHTML = `
@@ -1622,6 +1853,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="col-vendor"><span class="vendor-tag ${vendorClass}">${row.vendor}</span></td>
                 <td class="col-users" style="max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${userNames}">${userNames}</td>
                 <td class="col-boqTotal" style="text-align: center; font-weight: bold; color: #0EA5E9;">${row.boqTotal}</td>
+                <td class="col-newPoles" style="text-align: center; color: #a855f7; font-weight: 600;">${row.newPoles || 0}</td>
                 <td class="col-actualTotal" style="text-align: center;">${row.actualTotal}</td>
                 <td class="col-remaining" style="text-align: center; color: #a0a0a0;">${Math.max(0, row.boqTotal - row.actualTotal)}</td>
                 <td class="col-concrete" style="text-align: center;">${row.concrete}</td>
@@ -1782,7 +2014,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <b>Pole ID:</b> ${d["Lt PoleSLRN"] || d["LT Pole No"] || "N/A"}<br>
                         <b>DT Name:</b> ${d["DT Name"] || "N/A"}<br>
                         <b>Vendor:</b> ${d.Vendor_Name}<br>
-                        <b>Officer:</b> ${userFullNames[d.User] || d.User}<br>
+                        <b>Officer:</b> ${getDisplayName(d.User)}<br>
                         <b>Coords:</b> ${lat.toFixed(5)}, ${lon.toFixed(5)}
                     </div>
                 `;
@@ -1824,10 +2056,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const sortedUsers = Object.entries(userCounts).sort((a, b) => b[1] - a[1]);
 
         const topUserEntry = sortedUsers[0] || ['N/A', 0];
-        const topUser = userFullNames[topUserEntry[0]] || topUserEntry[0];
+        const topUser = getDisplayName(topUserEntry[0]);
 
         const bottomUserEntry = sortedUsers[sortedUsers.length - 1] || ['N/A', 0];
-        const bottomUser = userFullNames[bottomUserEntry[0]] || bottomUserEntry[0];
+        const bottomUser = getDisplayName(bottomUserEntry[0]);
         // Find vendor for bottom user
         const bottomUserRecord = filteredData.find(d => d.User === bottomUserEntry[0]);
         const bottomVendor = bottomUserRecord ? (bottomUserRecord["Vendor_Name"] || 'Unknown') : 'Unknown';
@@ -2104,13 +2336,26 @@ document.addEventListener('DOMContentLoaded', () => {
         // unless we want them to reflect the filtered view. Strategic usually implies overall.
         // Let's use globalData for stability.
 
-        const vendors = ['ETC Workforce', 'Jesom Technology'];
+        const vendors = ['ETC Workforce', 'Jesom Technology', 'Ikeja Electric'];
 
         vendors.forEach(vendor => {
             // Filter Data for Vendor
             const vData = globalData.filter(d => d.Vendor_Name === vendor);
 
-            if (vData.length === 0) return; // No data, skip
+            const idKey = vendor.split(' ')[0].toLowerCase();
+            const badge = document.getElementById(`status-badge-${idKey}`);
+            const content = document.getElementById(`rec-content-${idKey}`);
+
+            if (vData.length === 0) {
+                if (badge) {
+                    badge.textContent = 'Pending Data';
+                    badge.className = 'status-badge status-attention';
+                }
+                if (content) {
+                    content.innerHTML = '<div class="rec-item"><p>Awaiting field captures from this vendor.</p></div>';
+                }
+                return;
+            }
 
             // --- Metrics Calculation ---
 
@@ -2203,11 +2448,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 rec3.text = `Data quality appears healthy (Defect Rate: ${defectPct}%). Continue standard verification procedures.`;
             }
 
-            // --- Render ---
-            const idKey = vendor.split(' ')[0].toLowerCase();
-            const badge = document.getElementById(`status-badge-${idKey}`);
-            const content = document.getElementById(`rec-content-${idKey}`);
-
             if (badge) {
                 badge.textContent = status;
                 badge.className = `status-badge ${statusClass}`;
@@ -2238,8 +2478,97 @@ document.addEventListener('DOMContentLoaded', () => {
         resetFiltersBtn.addEventListener('click', resetFilters);
     }
 
+
+
+
+    // --- Search Intelligence ---
+    let searchFocusIndex = -1;
+
+    function highlightMatch(text, query) {
+        if (!query) return text;
+        const idx = text.toLowerCase().indexOf(query.toLowerCase());
+        if (idx === -1) return text;
+        return text.slice(0, idx) + '<mark>' + text.slice(idx, idx + query.length) + '</mark>' + text.slice(idx + query.length);
+    }
+
+    function handleSearchInput(val) {
+        const list = document.getElementById('searchSuggestions');
+        if (!list) return;
+
+        const query = val.trim();
+        if (query.length === 0) {
+            list.style.display = 'none';
+            searchFocusIndex = -1;
+            return;
+        }
+
+        const suggestions = getSearchSuggestions(query);
+        if (suggestions.length === 0) {
+            list.style.display = 'none';
+            return;
+        }
+
+        // Clear old items but keep the header
+        list.innerHTML = '<div class="search-suggestions-header">Suggestions</div>';
+        searchFocusIndex = -1;
+
+        suggestions.forEach((item, i) => {
+            const div = document.createElement('div');
+            div.className = 'search-suggestion-item';
+            div.setAttribute('data-index', i);
+
+            const typeClass = `type-${item.type.toLowerCase()}`;
+            div.innerHTML = `
+                <span class="suggestion-label">${highlightMatch(item.text, query)}</span>
+                <span class="suggestion-type ${typeClass}">${item.type}</span>
+            `;
+
+            div.addEventListener('mousedown', (e) => {
+                e.preventDefault(); // prevent blur before click
+                applySearchSuggestion(item.text);
+            });
+
+            list.appendChild(div);
+        });
+
+        list.style.display = 'flex';
+    }
+
+    // Keyboard navigation for intellisense
     const dtSearchInput = document.getElementById('dtSearchInput');
     if (dtSearchInput) {
+        dtSearchInput.addEventListener('keydown', function (e) {
+            const list = document.getElementById('searchSuggestions');
+            if (!list || list.style.display === 'none') return;
+
+            const items = list.querySelectorAll('.search-suggestion-item');
+            if (!items.length) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                searchFocusIndex = Math.min(searchFocusIndex + 1, items.length - 1);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                searchFocusIndex = Math.max(searchFocusIndex - 1, 0);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (searchFocusIndex >= 0 && items[searchFocusIndex]) {
+                    items[searchFocusIndex].dispatchEvent(new MouseEvent('mousedown'));
+                }
+                return;
+            } else if (e.key === 'Escape') {
+                list.style.display = 'none';
+                searchFocusIndex = -1;
+                return;
+            } else {
+                return;
+            }
+
+            items.forEach((el, i) => {
+                el.classList.toggle('focused', i === searchFocusIndex);
+            });
+        });
+
         dtSearchInput.addEventListener('input', function () {
             currentPage = 1;
             renderDTTable();
@@ -2247,7 +2576,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         dtSearchInput.addEventListener('blur', () => {
-            // Delay hiding to allow click event on suggestion to fire
             setTimeout(() => {
                 const list = document.getElementById('searchSuggestions');
                 if (list) list.style.display = 'none';
@@ -2259,59 +2587,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Search Intelligence ---
-    function handleSearchInput(val) {
-        const list = document.getElementById('searchSuggestions');
-        if (!list) return;
-
-        const query = val.toLowerCase().trim();
-        if (query.length === 0) {
-            list.style.display = 'none';
-            return;
-        }
-
-        const suggestions = getSearchSuggestions(query);
-        if (suggestions.length === 0) {
-            list.style.display = 'none';
-            return;
-        }
-
-        list.innerHTML = '';
-        suggestions.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'search-suggestion-item';
-            div.innerHTML = `<span>${item.text}</span> <span class="suggestion-type">${item.type}</span>`;
-            div.onclick = () => {
-                applySearchSuggestion(item.text);
-            };
-            list.appendChild(div);
-        });
-        list.style.display = 'flex';
-    }
-
     function getSearchSuggestions(query) {
-        // Search across filteredData
-        const maxResults = 8;
+        const maxResults = 10;
         const results = [];
         const seen = new Set();
+        const q = query.toLowerCase();
 
-        for (const row of filteredData) {
+        const add = (text, type) => {
+            if (results.length >= maxResults) return;
+            const t = String(text || '');
+            if (t && t.toLowerCase().includes(q) && !seen.has(t)) {
+                seen.add(t);
+                results.push({ text: t, type });
+            }
+        };
+
+        // Search from enhanced DT data for richer coverage
+        const dtData = getEnhancedDTData();
+        for (const row of dtData) {
             if (results.length >= maxResults) break;
-
-            // Helper to add
-            const add = (text, type) => {
-                if (results.length >= maxResults) return;
-                if (text && text.toLowerCase().includes(query) && !seen.has(text)) {
-                    seen.add(text);
-                    results.push({ text, type });
-                }
-            };
-
             add(row.dtName, 'DT');
             add(row.feeder, 'Feeder');
-            add(row.vendor, 'Vendor');
-            if (row.users) row.users.forEach(u => add(userFullNames[u] || u, 'User'));
+            add(row.vendor !== 'Pending' ? row.vendor : null, 'Vendor');
+            add(row.bu !== '-' ? row.bu : null, 'BU');
+            add(row.undertaking !== '-' ? row.undertaking : null, 'BU');
+            if (row.users) row.users.forEach(u => add(getDisplayName(u) || u, 'User'));
         }
+
         return results;
     }
 
@@ -2334,7 +2636,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'col-undertaking', label: 'Undertaking', checked: true },
         { id: 'col-vendor', label: 'Vendor', checked: true },
         { id: 'col-users', label: 'Field Officers', checked: true },
-        { id: 'col-boqTotal', label: 'Total (BOQ)', checked: true },
+        { id: 'col-boqTotal', label: 'Ex. Poles', checked: true },
+        { id: 'col-newPoles', label: 'New Poles (Install)', checked: true },
         { id: 'col-actualTotal', label: 'Actual', checked: true },
         { id: 'col-remaining', label: 'Remaining', checked: true },
         { id: 'col-concrete', label: 'Concrete', checked: true },
