@@ -586,6 +586,11 @@ footer {
     background: linear-gradient(180deg, rgba(249, 115, 22, 0.05) 0%, var(--card-bg) 100%);
 }
 
+.ikeja-card {
+    border-top: 4px solid #10b981;
+    background: linear-gradient(180deg, rgba(16, 185, 129, 0.05) 0%, var(--card-bg) 100%);
+}
+
 .card-header {
     display: flex;
     justify-content: space-between;
