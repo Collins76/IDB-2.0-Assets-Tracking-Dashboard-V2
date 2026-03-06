@@ -1467,15 +1467,14 @@ document.addEventListener('DOMContentLoaded', () => {
             paper_bgcolor: 'rgba(0,0,0,0)',
             plot_bgcolor: 'rgba(0,0,0,0)',
             font: { color: '#fafafa' },
-            margin: { t: 30, b: 120, l: 50, r: 20 }, // INCREASE BOTTOM MARGIN for names
+            margin: { t: 50, b: 120, l: 50, r: 20 },
             xaxis: { title: '', tickangle: -45 },
             yaxis: { title: 'Records Captured' },
-            // Add a manual legend since we are using a single trace with multiple colors
             annotations: [
                 {
                     xref: 'paper', yref: 'paper',
-                    x: 1, y: 1,
-                    xanchor: 'right', yanchor: 'bottom',
+                    x: 0.5, y: 1.12,
+                    xanchor: 'center', yanchor: 'bottom',
                     text: '<span style="color:#0EA5E9">■</span> ETC Workforce  <span style="color:#f97316">■</span> Jesom Technology  <span style="color:#eab308">■</span> Ikeja Electric',
                     showarrow: false,
                     font: { size: 12, color: '#fafafa' }
