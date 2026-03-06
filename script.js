@@ -1476,7 +1476,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     xref: 'paper', yref: 'paper',
                     x: 1, y: 1,
                     xanchor: 'right', yanchor: 'bottom',
-                    text: '<span style="color:#0EA5E9">■</span> ETC Workforce  <span style="color:#f97316">■</span> Jesom Technology',
+                    text: '<span style="color:#0EA5E9">■</span> ETC Workforce  <span style="color:#f97316">■</span> Jesom Technology  <span style="color:#eab308">■</span> Ikeja Electric',
                     showarrow: false,
                     font: { size: 12, color: '#fafafa' }
                 }
@@ -1542,13 +1542,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const traceIkeja = {
             x: sortedDates,
             y: yIkeja,
-            name: 'Ikeja Electric (Green)',
+            name: 'Ikeja Electric',
             type: 'scatter',
             mode: 'lines+markers+text',
             text: yIkeja.map(String),
             textposition: 'top center',
             fill: 'tozeroy',
-            line: { color: '#10b981' }, // Green
+            line: { color: '#eab308' },
+
             marker: { size: 6 }
         };
 
@@ -2362,6 +2363,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let color = '#a0a0a0';
                 if (d.Vendor_Name === 'ETC Workforce') color = '#0EA5E9';
                 if (d.Vendor_Name === 'Jesom Technology') color = '#EF4444';
+                if (d.Vendor_Name === 'Ikeja Electric') color = '#eab308';
 
                 const marker = L.circleMarker([lat, lon], {
                     radius: 6,
