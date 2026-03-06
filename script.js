@@ -1515,26 +1515,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const traceETC = {
             x: sortedDates,
             y: yETC,
-            name: 'ETC Workforce (Blue)',
+            name: 'ETC Workforce',
             type: 'scatter',
-            mode: 'lines+markers+text',
-            text: yETC.map(String),
-            textposition: 'top center',
+            mode: 'lines+markers',
             fill: 'tozeroy',
-            line: { color: '#0EA5E9' }, // Blue
+            line: { color: '#0EA5E9' },
             marker: { size: 6 }
         };
 
         const traceJesom = {
             x: sortedDates,
             y: yJesom,
-            name: 'Jesom Technology (Orange)',
+            name: 'Jesom Technology',
             type: 'scatter',
-            mode: 'lines+markers+text',
-            text: yJesom.map(String),
-            textposition: 'top center',
+            mode: 'lines+markers',
             fill: 'tozeroy',
-            line: { color: '#f97316' }, // Orange
+            line: { color: '#f97316' },
             marker: { size: 6 }
         };
 
@@ -1543,12 +1539,9 @@ document.addEventListener('DOMContentLoaded', () => {
             y: yIkeja,
             name: 'Ikeja Electric',
             type: 'scatter',
-            mode: 'lines+markers+text',
-            text: yIkeja.map(String),
-            textposition: 'top center',
+            mode: 'lines+markers',
             fill: 'tozeroy',
             line: { color: '#eab308' },
-
             marker: { size: 6 }
         };
 
@@ -1559,13 +1552,14 @@ document.addEventListener('DOMContentLoaded', () => {
             font: { color: '#fafafa' },
             xaxis: {
                 title: '',
-                tickformat: '%b %d, %Y', // e.g. Jan 30, 2026
-                tickvals: sortedDates // Ensure all dates are shown if needed, or let Plotly handle it
+                tickformat: '%b %d',
+                tickangle: -45,
+                dtick: sortedDates.length > 20 ? 86400000 * 3 : 86400000
             },
             yaxis: { title: '' },
-            margin: { t: 40, l: 40, r: 20, b: 40 },
+            margin: { t: 40, l: 40, r: 20, b: 100 },
             showlegend: true,
-            legend: { orientation: "h", y: -0.2 }
+            legend: { orientation: "h", y: -0.45, x: 0.5, xanchor: 'center' }
         };
 
         Plotly.newPlot('projectVelocityChart', [traceETC, traceJesom, traceIkeja], layout, { responsive: true });
