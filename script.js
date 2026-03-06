@@ -226,38 +226,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const boqDataUrl = "https://zgypltdsqjhftnxadunu.supabase.co/storage/v1/object/public/dashboard-assets/BOQ-IDB.json";
 
-    const fetchWithFallback = async (primaryUrl, localPath, githubRawUrl) => {
-        try {
-            const res = await fetch(primaryUrl + '?t=' + new Date().getTime());
-            if (!res.ok) throw new Error('Network response was not ok');
-            return await res.json();
-        } catch (error) {
-            console.warn(`Primary fetch failed for ${primaryUrl}, trying local fallback...`, error);
-            try {
-                const resFallback = await fetch(localPath + '?t=' + new Date().getTime());
-                if (!resFallback.ok) throw new Error('Fallback network response was not ok');
-                return await resFallback.json();
-            } catch (fallbackError) {
-                console.warn(`Local fallback failed, trying GitHub raw URL...`, fallbackError);
-                const resGithub = await fetch(githubRawUrl + '?t=' + new Date().getTime());
-                if (!resGithub.ok) throw new Error('GitHub raw network response was not ok');
-                return await resGithub.json();
-            }
-        }
-    };
-
     Promise.all([
-        // Try Supabase first, fallback to local file, then fallback to guaranteed github raw URL
-        fetchWithFallback(
-            fieldDataUrl,
-            './converted_data_latest.json',
-            'https://raw.githubusercontent.com/Collins76/IDB-2.0-Assets-Tracking-Dashboard-V2/main/converted_data_latest.json'
-        ),
-        fetchWithFallback(
-            boqDataUrl,
-            './BOQ-IDB.json',
-            'https://raw.githubusercontent.com/Collins76/IDB-2.0-Assets-Tracking-Dashboard-V2/main/BOQ-IDB.json'
-        )
+        fetch(fieldDataUrl + '?t=' + new Date().getTime(), { cache: 'no-store' }).then(res => {
+            if (!res.ok) throw new Error('Failed to load Field Data from Supabase');
+            return res.json();
+        }),
+        fetch(boqDataUrl + '?t=' + new Date().getTime(), { cache: 'no-store' }).then(res => {
+            if (!res.ok) throw new Error('Failed to load BOQ Data from Supabase');
+            return res.json();
+        })
     ]).then(([fieldData, boq]) => {
         // Process Field Data
         fieldData.forEach(item => {
