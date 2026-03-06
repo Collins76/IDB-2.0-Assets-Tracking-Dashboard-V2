@@ -346,7 +346,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- INTELLIGENCE HELPERS ---
 
-        // simple Levenshtein distance for fuzzy matching
         const getDistance = (a, b) => {
             if (a.length === 0) return b.length;
             if (b.length === 0) return a.length;
@@ -365,17 +364,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return matrix[b.length][a.length];
         };
 
-        const isFuzzyMatch = (input, target, threshold = 2) => {
-            if (target.includes(input)) return true;
-            return getDistance(input, target) <= threshold;
-        };
-
         const findClosestEntity = (input, list) => {
             let bestMatch = null;
             let minDist = Infinity;
             list.forEach(item => {
                 const dist = getDistance(input, item.toLowerCase());
-                if (dist < minDist && dist < 4) { // Tolerance
+                if (dist < minDist && dist < 4) {
                     minDist = dist;
                     bestMatch = item;
                 }
@@ -383,234 +377,583 @@ document.addEventListener('DOMContentLoaded', () => {
             return bestMatch;
         };
 
+        const formatNum = (n) => typeof n === 'number' ? n.toLocaleString() : n;
+
+        const getRunRate = (dataset) => {
+            const dates = new Set(dataset.map(d => d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : '').filter(Boolean));
+            const days = dates.size || 1;
+            return { rate: (dataset.length / days).toFixed(1), days, total: dataset.length };
+        };
+
+        const getDefectStats = (dataset) => {
+            const bad = dataset.filter(d => d.Issue_Type && d.Issue_Type !== 'Good Condition').length;
+            const pct = dataset.length > 0 ? ((bad / dataset.length) * 100).toFixed(1) : '0.0';
+            return { bad, pct, good: dataset.length - bad };
+        };
+
+        const getPoleTypes = (dataset) => {
+            const counts = {};
+            dataset.forEach(d => {
+                const t = (d["Type of Pole"] || 'Unknown').toUpperCase();
+                counts[t] = (counts[t] || 0) + 1;
+            });
+            return counts;
+        };
 
         // Show Loading State
         responseEl.innerHTML = '<div class="ai-loading"><span></span><span></span><span></span></div>';
         responseEl.classList.add('visible');
 
         setTimeout(() => {
-            // USE filteredData !! This links the AI to the Dashboard Filters
             const data = filteredData;
-            // const totalAssets = document.getElementById('totalAssets').textContent; // REMOVED: Element doesn't exist
-
-            const formatNum = (n) => n.toLocaleString();
             let answer = "";
-            let intent = "unknown";
 
-            // If the user asks for "current view" or "shown", emphasize we are using filters
-            const explicitFilter = query.includes('filtered') || query.includes('shown') || query.includes('view') || query.includes('screen');
-
-            // --- INTENT DETECTION ---
-
-            // 1. RANKING (Top/Bottom)
-            if (query.match(/top|best|highest|most|lead|first/)) intent = "rank_high";
-            else if (query.match(/bottom|worst|lowest|least|last|slow/)) intent = "rank_low";
-
-            // 2. RUN RATE
-            else if (query.match(/run|rate|velocity|speed|avg|daily/)) intent = "run_rate";
-
-            // 3. COUNT/TOTAL
-            else if (query.match(/count|total|how many|number/)) intent = "count";
-
-            // 4. ISSUES
-            else if (query.match(/issue|defect|problem|broken|damage|bad/)) intent = "issues";
-
-            // --- EXECUTION ---
-
-            // --- CONTEXT FILTERING & LIMITS ---
-            let contextData = data;
-            let contextName = "Global";
-
-            // Extract Limit (e.g., "Top 10")
+            // Extract numeric limit (e.g., "Top 10")
             const numMatch = query.match(/(\d+)/);
             const customLimit = numMatch ? parseInt(numMatch[1]) : 5;
 
-            // Detect Vendor Context (search for known vendor names in query)
+            // --- CONTEXT FILTERING (stacking: vendor > feeder > DT > BU > undertaking) ---
+            let contextData = data;
+            let contextParts = [];
+
+            // Vendor detection
             const vendors = [...new Set(data.map(d => d.Vendor_Name))].filter(Boolean);
             let foundVendor = null;
-
-            // 1. Exact/Fuzzy check against vendor list
             for (let v of vendors) {
-                if (query.includes(v.toLowerCase())) {
-                    foundVendor = v;
-                    break;
+                if (query.includes(v.toLowerCase())) { foundVendor = v; break; }
+            }
+            if (!foundVendor) {
+                if (query.includes('ikeja') || query.match(/\bie\b/)) foundVendor = vendors.find(v => v.includes('Ikeja'));
+                if (!foundVendor && query.includes('etc')) foundVendor = vendors.find(v => v.includes('ETC'));
+                if (!foundVendor && query.includes('jesom')) foundVendor = vendors.find(v => v.includes('Jesom'));
+            }
+            if (foundVendor) {
+                contextData = contextData.filter(d => d.Vendor_Name === foundVendor);
+                contextParts.push(foundVendor);
+            }
+
+            // Feeder detection
+            const allFeeders = [...new Set(data.map(d => d.Feeder).filter(Boolean))];
+            let foundFeeder = null;
+            for (let f of allFeeders) {
+                if (query.includes(f.toLowerCase())) { foundFeeder = f; break; }
+            }
+            if (!foundFeeder) foundFeeder = findClosestEntity(query, allFeeders);
+            // Only apply feeder filter if the query explicitly mentions feeder-related terms or the match is strong
+            if (foundFeeder && (query.includes('feeder') || query.includes(foundFeeder.toLowerCase().split('-')[0]))) {
+                contextData = contextData.filter(d => d.Feeder === foundFeeder);
+                contextParts.push('Feeder: ' + foundFeeder);
+            } else { foundFeeder = null; }
+
+            // DT detection
+            const allDTs = [...new Set(data.map(d => d["DT Name"]).filter(Boolean))];
+            let foundDT = null;
+            for (let dt of allDTs) {
+                if (query.includes(dt.toLowerCase())) { foundDT = dt; break; }
+            }
+            if (foundDT) {
+                contextData = contextData.filter(d => d["DT Name"] === foundDT);
+                contextParts.push('DT: ' + foundDT);
+            }
+
+            // Business Unit detection
+            const allBUs = [...new Set(data.map(d => d["Bussines Unit"]).filter(Boolean))];
+            let foundBU = null;
+            if (query.match(/\bbu\b|business unit/)) {
+                for (let bu of allBUs) {
+                    if (query.includes(bu.toLowerCase())) { foundBU = bu; break; }
+                }
+                if (!foundBU) foundBU = findClosestEntity(query.replace(/business unit|bu/g, '').trim(), allBUs);
+            } else {
+                for (let bu of allBUs) {
+                    if (query.includes(bu.toLowerCase())) { foundBU = bu; break; }
                 }
             }
-            // 2. Common short names check
-            if (!foundVendor) {
-                if (query.includes('etc')) foundVendor = vendors.find(v => v.includes('ETC'));
-                if (query.includes('jesom')) foundVendor = vendors.find(v => v.includes('Jesom'));
+            if (foundBU) {
+                contextData = contextData.filter(d => d["Bussines Unit"] === foundBU);
+                contextParts.push('BU: ' + foundBU);
             }
 
-            if (foundVendor) {
-                contextData = data.filter(d => d.Vendor_Name === foundVendor);
-                contextName = foundVendor;
+            // Undertaking detection
+            const allUTs = [...new Set(data.map(d => d.Undertaking).filter(Boolean))];
+            let foundUT = null;
+            if (query.includes('undertaking')) {
+                for (let ut of allUTs) {
+                    if (query.includes(ut.toLowerCase())) { foundUT = ut; break; }
+                }
+                if (!foundUT) foundUT = findClosestEntity(query.replace(/undertaking/g, '').trim(), allUTs);
+            } else {
+                for (let ut of allUTs) {
+                    if (query.includes(ut.toLowerCase())) { foundUT = ut; break; }
+                }
+            }
+            if (foundUT) {
+                contextData = contextData.filter(d => d.Undertaking === foundUT);
+                contextParts.push('Undertaking: ' + foundUT);
             }
 
-            // RANKING LOGIC
+            const contextName = contextParts.length > 0 ? contextParts.join(' > ') : 'All Data';
+
+            // --- INTENT DETECTION (broader, ordered by specificity) ---
+            let intent = "unknown";
+
+            if (query.match(/\bcompare\b|\bvs\b|\bversus\b|difference between/)) intent = "compare";
+            else if (query.match(/\bsummary\b|\boverview\b|\bstatus\b|\breport\b|\bdashboard\b|\bbrief\b/)) intent = "summary";
+            else if (query.match(/\bboq\b|\btarget\b|\bbill of quantit|\bplanned\b|\bprocurement\b/)) intent = "boq";
+            else if (query.match(/\btrend\b|\bover time\b|\bprogress\b|\byesterday\b|\btoday\b|\blast\s+\d+\s+day|\bthis week\b|\bweekly\b|\bwhen\b|\bdate\b|\btimeline\b/)) intent = "trend";
+            else if (query.match(/\btop\b|\bbest\b|\bhighest\b|\bmost\b|\blead\b|\bfirst\b/)) intent = "rank_high";
+            else if (query.match(/\bbottom\b|\bworst\b|\blowest\b|\bleast\b|\bslowest\b/)) intent = "rank_low";
+            else if (query.match(/\brun rate\b|\bvelocity\b|\bspeed\b|\bpace\b|\bavg rate\b|\bdaily rate\b/)) intent = "run_rate";
+            else if (query.match(/\bissue\b|\bdefect\b|\bproblem\b|\bbroken\b|\bdamage\b|\bbad\b|\bquality\b/)) intent = "issues";
+            else if (query.match(/\bpole type\b|\bmaterial\b|\bconcrete\b|\bwood\b|\bdistribution of pole|\bpole.*breakdown\b/)) intent = "pole_type";
+            else if (query.match(/\bbuilding\b|\bconnected\b|\bserved\b|\bcustomer\b/)) intent = "buildings";
+            else if (query.match(/\blocation\b|\baddress\b|\barea\b|\bwhere\b|\bregion\b/)) intent = "location";
+            else if (query.match(/\bcount\b|\btotal\b|\bhow many\b|\bnumber\b/)) intent = "count";
+            else if (query.match(/\bfeeder\b/) && !foundFeeder) intent = "list_feeders";
+            else if (query.match(/\bdt\b|\btransformer\b/) && !foundDT) intent = "list_dts";
+            else if (query.match(/\bundertaking\b/) && !foundUT) intent = "list_uts";
+            else if (query.match(/\bbusiness unit\b|\bbu\b/) && !foundBU) intent = "list_bus";
+
+            // --- INTENT EXECUTION ---
+
+            // RANKING
             if (intent === "rank_high" || intent === "rank_low") {
                 const isHigh = intent === "rank_high";
                 const sortMult = isHigh ? -1 : 1;
                 const adj = isHigh ? "Top" : "Bottom";
 
-                // Rank Vendors (only if no specific vendor context, OR explicit request)
-                // If user asks "Top vendors in ETC", it's redundant but valid (result: 1 vendor)
                 if (query.includes('vendor') && !foundVendor) {
                     const counts = {};
                     contextData.forEach(d => counts[d.Vendor_Name] = (counts[d.Vendor_Name] || 0) + 1);
                     const sorted = Object.entries(counts).sort((a, b) => (a[1] - b[1]) * sortMult);
-                    const winner = sorted[0];
-                    answer = `The **${adj} Vendor** is **${winner[0]}** with **${formatNum(winner[1])} assets**.`;
+                    const list = sorted.slice(0, customLimit).map((v, i) => `${i + 1}. **${v[0]}** — ${formatNum(v[1])} poles`).join('<br>');
+                    answer = `**${adj} Vendors:**<br>${list}`;
                 }
-                // Rank Users (Field Officers)
-                else if (query.includes('user') || query.includes('officer') || query.includes('staff')) {
+                else if (query.match(/feeder/)) {
                     const counts = {};
-                    contextData.forEach(d => counts[d.User] = (counts[d.User] || 0) + 1);
+                    contextData.forEach(d => { if (d.Feeder) counts[d.Feeder] = (counts[d.Feeder] || 0) + 1; });
                     const sorted = Object.entries(counts).sort((a, b) => (a[1] - b[1]) * sortMult);
-
-                    const list = sorted.slice(0, customLimit).map((u, i) => `${i + 1}. ${getDisplayName(u[0])} (${formatNum(u[1])})`).join('<br>');
-                    const contextStr = foundVendor ? ` in **${foundVendor}**` : "";
-
-                    answer = `Here are the **${adj} ${customLimit} Field Officers**${contextStr}:<br>${list}`;
+                    const list = sorted.slice(0, customLimit).map((f, i) => `${i + 1}. **${f[0]}** — ${formatNum(f[1])} poles`).join('<br>');
+                    answer = `**${adj} ${customLimit} Feeders** (${contextName}):<br>${list}`;
+                }
+                else if (query.match(/dt|transformer/)) {
+                    const counts = {};
+                    contextData.forEach(d => { if (d["DT Name"]) counts[d["DT Name"]] = (counts[d["DT Name"]] || 0) + 1; });
+                    const sorted = Object.entries(counts).sort((a, b) => (a[1] - b[1]) * sortMult);
+                    const list = sorted.slice(0, customLimit).map((dt, i) => `${i + 1}. **${dt[0]}** — ${formatNum(dt[1])} poles`).join('<br>');
+                    answer = `**${adj} ${customLimit} DTs** (${contextName}):<br>${list}`;
+                }
+                else if (query.match(/undertaking/)) {
+                    const counts = {};
+                    contextData.forEach(d => { if (d.Undertaking) counts[d.Undertaking] = (counts[d.Undertaking] || 0) + 1; });
+                    const sorted = Object.entries(counts).sort((a, b) => (a[1] - b[1]) * sortMult);
+                    const list = sorted.slice(0, customLimit).map((u, i) => `${i + 1}. **${u[0]}** — ${formatNum(u[1])} poles`).join('<br>');
+                    answer = `**${adj} ${customLimit} Undertakings** (${contextName}):<br>${list}`;
                 }
                 else {
-                    answer = "I can rank Vendors or Users. Try 'Top 10 users' or 'Bottom vendor'.";
+                    // Default: rank users/officers
+                    const counts = {};
+                    contextData.forEach(d => { if (d.User) counts[d.User] = (counts[d.User] || 0) + 1; });
+                    const sorted = Object.entries(counts).sort((a, b) => (a[1] - b[1]) * sortMult);
+                    const list = sorted.slice(0, customLimit).map((u, i) => `${i + 1}. ${getDisplayName(u[0])} — **${formatNum(u[1])}** poles`).join('<br>');
+                    answer = `**${adj} ${customLimit} Field Officers** (${contextName}):<br>${list}`;
                 }
             }
 
-            // RUN RATE LOGIC
-            else if (intent === "run_rate") {
-                // Use contextData which is already filtered by vendor if applicable
-                const dates = new Set(contextData.map(d => d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : ''));
-                const days = dates.size || 1;
-                const rate = (contextData.length / days).toFixed(1);
-                answer = `**${contextName}** Performance:<br>Avg Run Rate: **${rate} assets/day**<br>Active Days: ${days}`;
-            }
+            // COMPARE
+            else if (intent === "compare") {
+                // Detect two vendors or two users
+                const mentionedVendors = vendors.filter(v => query.includes(v.toLowerCase()));
+                // Also check shortnames
+                if (query.includes('etc') && !mentionedVendors.find(v => v.includes('ETC'))) { const v = vendors.find(v => v.includes('ETC')); if (v) mentionedVendors.push(v); }
+                if (query.includes('jesom') && !mentionedVendors.find(v => v.includes('Jesom'))) { const v = vendors.find(v => v.includes('Jesom')); if (v) mentionedVendors.push(v); }
+                if ((query.includes('ikeja') || query.match(/\bie\b/)) && !mentionedVendors.find(v => v.includes('Ikeja'))) { const v = vendors.find(v => v.includes('Ikeja')); if (v) mentionedVendors.push(v); }
 
-            // ISSUES LOGIC
-            else if (intent === "issues") {
-                const issues = data.filter(d => d.Issue_Type && d.Issue_Type !== 'Good Condition');
-                answer = `Found **${formatNum(issues.length)} defects** in total.`;
-            }
-
-            // COUNT LOGIC (Broad)
-            else if (intent === "count") {
-                if (query.includes('dt') || query.includes('transformer')) {
-                    // Check KPI first?
-                    const visibleDTs = new Set(data.map(d => d["DT Name"])).size;
-                    answer = `Currently showing **${formatNum(visibleDTs)} Unique DTs** based on your filters.`;
-                } else if (query.includes('feed')) {
-                    const visibleFeeders = new Set(data.map(d => d["Feeder"])).size;
-                    answer = `Currently showing **${formatNum(visibleFeeders)} Feeders** based on your filters.`;
-                } else if (query.includes('user') || query.includes('officer') || query.includes('people')) {
-                    // Fix: specific count for users
-                    const activeUsers = new Set(data.map(d => d.User)).size;
-                    answer = `There are **${activeUsers} Active Field Officers** in the current filtered view.`;
+                if (mentionedVendors.length >= 2) {
+                    const rows = mentionedVendors.map(v => {
+                        const vd = data.filter(d => d.Vendor_Name === v);
+                        const rr = getRunRate(vd);
+                        const df = getDefectStats(vd);
+                        const users = new Set(vd.map(d => d.User)).size;
+                        return `**${v}:**<br>  Poles: ${formatNum(vd.length)} | Run Rate: ${rr.rate}/day | Users: ${users} | Defects: ${df.pct}%`;
+                    });
+                    answer = `**Vendor Comparison:**<br><br>${rows.join('<br><br>')}`;
+                } else if (mentionedVendors.length === 0) {
+                    // Compare all vendors
+                    const rows = vendors.map(v => {
+                        const vd = data.filter(d => d.Vendor_Name === v);
+                        const rr = getRunRate(vd);
+                        const df = getDefectStats(vd);
+                        return `**${v}:** ${formatNum(vd.length)} poles | ${rr.rate}/day | Defects: ${df.pct}%`;
+                    });
+                    answer = `**All Vendors Comparison:**<br>${rows.join('<br>')}`;
                 } else {
-                    // Check for material keywords
-                    if (query.includes('wood')) answer = `Wooden Poles (in view): **${data.filter(d => (d["Pole Material"] || "").toLowerCase().includes('wood')).length}**`;
-                    else if (query.includes('conc')) answer = `Concrete Poles (in view): **${data.filter(d => (d["Pole Material"] || "").toLowerCase().includes('conc')).length}**`;
-                    else {
-                        // Default to Total Assets from KPI if generic
-                        answer = `Total Assets on screen: **${data.length.toLocaleString()}** (Filtered from ${globalData.length.toLocaleString()} total).`;
+                    answer = "Please mention two vendors to compare. E.g., 'Compare ETC vs Ikeja Electric'.";
+                }
+            }
+
+            // SUMMARY
+            else if (intent === "summary") {
+                const rr = getRunRate(contextData);
+                const df = getDefectStats(contextData);
+                const users = new Set(contextData.map(d => d.User)).size;
+                const feeders = new Set(contextData.map(d => d.Feeder)).size;
+                const dts = new Set(contextData.map(d => d["DT Name"])).size;
+                const uts = new Set(contextData.map(d => d.Undertaking)).size;
+                const poleTypes = getPoleTypes(contextData);
+                const typeStr = Object.entries(poleTypes).map(([k, v]) => `${k}: ${formatNum(v)}`).join(', ');
+
+                let boqTotal = 0;
+                if (boqData.length) boqTotal = boqData.reduce((s, d) => s + (parseInt(d["POLES Grand Total"]) || 0), 0);
+                const completionPct = boqTotal > 0 ? ((contextData.length / boqTotal) * 100).toFixed(1) : 'N/A';
+
+                answer = `**${contextName} — Dashboard Summary:**<br><br>` +
+                    `Total Poles: **${formatNum(contextData.length)}**<br>` +
+                    `Active Users: **${users}**<br>` +
+                    `Run Rate: **${rr.rate} poles/day** (${rr.days} active days)<br>` +
+                    `Feeders: **${feeders}** | DTs: **${dts}** | Undertakings: **${uts}**<br>` +
+                    `Defect Rate: **${df.pct}%** (${formatNum(df.bad)} defects)<br>` +
+                    `Pole Types: ${typeStr}<br>` +
+                    (boqTotal > 0 ? `BOQ Target: **${formatNum(boqTotal)}** | Completion: **${completionPct}%**` : '');
+            }
+
+            // BOQ
+            else if (intent === "boq") {
+                if (!boqData.length) {
+                    answer = "No BOQ data is currently loaded.";
+                } else {
+                    const totalTarget = boqData.reduce((s, d) => s + (parseInt(d["POLES Grand Total"]) || 0), 0);
+                    const totalBad = boqData.reduce((s, d) => s + (parseInt(d["BAD"]) || 0), 0);
+                    const totalGood = boqData.reduce((s, d) => s + (parseInt(d["GOOD"]) || 0), 0);
+                    const totalNew = boqData.reduce((s, d) => s + (parseInt(d["NEW POLE"]) || 0), 0);
+                    const actual = contextData.length;
+                    const completionPct = totalTarget > 0 ? ((actual / totalTarget) * 100).toFixed(1) : '0';
+
+                    if (query.match(/feeder/) && !query.match(/all/)) {
+                        // BOQ by feeder — top feeders by target
+                        const sorted = [...boqData].sort((a, b) => (parseInt(b["POLES Grand Total"]) || 0) - (parseInt(a["POLES Grand Total"]) || 0));
+                        const list = sorted.slice(0, customLimit).map((d, i) =>
+                            `${i + 1}. **${d["FEEDER NAME"] || d["DT NAME"]}** — Target: ${d["POLES Grand Total"]}, Good: ${d["GOOD"]}, Bad: ${d["BAD"]}, New: ${d["NEW POLE"]}`
+                        ).join('<br>');
+                        answer = `**BOQ — Top ${customLimit} by Target:**<br>${list}`;
+                    } else {
+                        answer = `**BOQ (Bill of Quantities) Overview:**<br><br>` +
+                            `Total BOQ Target: **${formatNum(totalTarget)} poles**<br>` +
+                            `Good Poles: **${formatNum(totalGood)}** | Bad Poles: **${formatNum(totalBad)}** | New Poles: **${formatNum(totalNew)}**<br>` +
+                            `Actual Field Records: **${formatNum(actual)}**<br>` +
+                            `Completion Rate: **${completionPct}%**`;
                     }
                 }
             }
 
-            // GENERAL SEARCH / FALLBACK (The "Wide Search")
+            // TREND
+            else if (intent === "trend") {
+                const dateMap = {};
+                contextData.forEach(d => {
+                    const ds = d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : '';
+                    if (ds) dateMap[ds] = (dateMap[ds] || 0) + 1;
+                });
+                const sortedDates = Object.entries(dateMap).sort((a, b) => {
+                    const da = new Date(a[0]), db = new Date(b[0]);
+                    return da - db;
+                });
+
+                if (sortedDates.length === 0) {
+                    answer = "No date-stamped records found in the current data.";
+                } else {
+                    // Check for "last N days" or "yesterday"
+                    const daysMatch = query.match(/last\s+(\d+)\s+day/);
+                    let recentDates = sortedDates;
+
+                    if (daysMatch) {
+                        const n = parseInt(daysMatch[1]);
+                        recentDates = sortedDates.slice(-n);
+                    } else if (query.includes('yesterday')) {
+                        recentDates = sortedDates.slice(-2, -1);
+                    } else if (query.includes('today')) {
+                        recentDates = sortedDates.slice(-1);
+                    } else if (query.includes('week')) {
+                        recentDates = sortedDates.slice(-7);
+                    } else {
+                        recentDates = sortedDates.slice(-10);
+                    }
+
+                    const totalInRange = recentDates.reduce((s, d) => s + d[1], 0);
+                    const avgInRange = (totalInRange / (recentDates.length || 1)).toFixed(1);
+                    const list = recentDates.map(([date, count]) => `${date}: **${count}** poles`).join('<br>');
+
+                    answer = `**Activity Timeline** (${contextName}):<br><br>${list}<br><br>` +
+                        `Period Total: **${formatNum(totalInRange)}** | Avg: **${avgInRange}/day**`;
+                }
+            }
+
+            // RUN RATE
+            else if (intent === "run_rate") {
+                const rr = getRunRate(contextData);
+                const perVendor = vendors.map(v => {
+                    const vd = contextData.filter(d => d.Vendor_Name === v);
+                    if (vd.length === 0) return null;
+                    const vr = getRunRate(vd);
+                    return `${v}: **${vr.rate}/day**`;
+                }).filter(Boolean);
+
+                answer = `**${contextName} — Run Rate:**<br>` +
+                    `Overall: **${rr.rate} poles/day** (${formatNum(rr.total)} poles over ${rr.days} days)`;
+                if (!foundVendor && perVendor.length > 1) {
+                    answer += `<br><br>By Vendor:<br>${perVendor.join('<br>')}`;
+                }
+            }
+
+            // ISSUES
+            else if (intent === "issues") {
+                const df = getDefectStats(contextData);
+                const issueCounts = {};
+                contextData.forEach(d => {
+                    if (d.Issue_Type && d.Issue_Type !== 'Good Condition') {
+                        issueCounts[d.Issue_Type] = (issueCounts[d.Issue_Type] || 0) + 1;
+                    }
+                });
+                const sorted = Object.entries(issueCounts).sort((a, b) => b[1] - a[1]);
+                const breakdown = sorted.slice(0, 10).map(([type, count]) => `${type}: **${count}**`).join('<br>');
+
+                answer = `**${contextName} — Defect Analysis:**<br>` +
+                    `Total Defects: **${formatNum(df.bad)}** out of ${formatNum(contextData.length)} (${df.pct}%)<br>`;
+                if (breakdown) answer += `<br>Breakdown:<br>${breakdown}`;
+
+                // Top users with defects
+                const userDefects = {};
+                contextData.filter(d => d.Issue_Type && d.Issue_Type !== 'Good Condition').forEach(d => {
+                    userDefects[d.User] = (userDefects[d.User] || 0) + 1;
+                });
+                const topDefectUsers = Object.entries(userDefects).sort((a, b) => b[1] - a[1]).slice(0, 3);
+                if (topDefectUsers.length) {
+                    answer += `<br><br>Top Defect Reporters:<br>` +
+                        topDefectUsers.map((u, i) => `${i + 1}. ${getDisplayName(u[0])} — ${u[1]} defects`).join('<br>');
+                }
+            }
+
+            // POLE TYPE
+            else if (intent === "pole_type") {
+                const types = getPoleTypes(contextData);
+                const total = contextData.length;
+                const sorted = Object.entries(types).sort((a, b) => b[1] - a[1]);
+                const list = sorted.map(([type, count]) =>
+                    `**${type}**: ${formatNum(count)} (${(count / total * 100).toFixed(1)}%)`
+                ).join('<br>');
+                answer = `**${contextName} — Pole Type Distribution:**<br><br>${list}<br><br>Total: **${formatNum(total)}**`;
+            }
+
+            // BUILDINGS
+            else if (intent === "buildings") {
+                const buildingCounts = contextData.map(d => parseInt(d["No of Buildings Connected to the Pole"]) || 0);
+                const totalBuildings = buildingCounts.reduce((s, n) => s + n, 0);
+                const avgBuildings = contextData.length > 0 ? (totalBuildings / contextData.length).toFixed(1) : '0';
+                const maxBuildings = Math.max(...buildingCounts, 0);
+                const polesWithBuildings = buildingCounts.filter(n => n > 0).length;
+
+                answer = `**${contextName} — Buildings Connected:**<br><br>` +
+                    `Total Buildings Served: **${formatNum(totalBuildings)}**<br>` +
+                    `Poles with Buildings: **${formatNum(polesWithBuildings)}** of ${formatNum(contextData.length)}<br>` +
+                    `Avg Buildings/Pole: **${avgBuildings}**<br>` +
+                    `Max on Single Pole: **${maxBuildings}**`;
+            }
+
+            // LOCATION
+            else if (intent === "location") {
+                const addrCounts = {};
+                contextData.forEach(d => {
+                    const addr = d["Location address"];
+                    if (addr) {
+                        const area = addr.split(',').pop().trim() || addr;
+                        addrCounts[area] = (addrCounts[area] || 0) + 1;
+                    }
+                });
+                const sorted = Object.entries(addrCounts).sort((a, b) => b[1] - a[1]);
+                const list = sorted.slice(0, customLimit).map((a, i) => `${i + 1}. **${a[0]}** — ${a[1]} poles`).join('<br>');
+                answer = `**${contextName} — Top ${customLimit} Areas:**<br><br>${list}`;
+            }
+
+            // COUNT
+            else if (intent === "count") {
+                if (query.match(/dt|transformer/)) {
+                    const dts = new Set(contextData.map(d => d["DT Name"])).size;
+                    answer = `**${formatNum(dts)} Unique DTs** in ${contextName}.`;
+                } else if (query.match(/feed/)) {
+                    const feeders = new Set(contextData.map(d => d.Feeder)).size;
+                    answer = `**${formatNum(feeders)} Feeders** in ${contextName}.`;
+                } else if (query.match(/user|officer|people|staff/)) {
+                    const users = new Set(contextData.map(d => d.User)).size;
+                    answer = `**${users} Active Field Officers** in ${contextName}.`;
+                } else if (query.match(/undertaking/)) {
+                    const uts = new Set(contextData.map(d => d.Undertaking)).size;
+                    answer = `**${formatNum(uts)} Undertakings** in ${contextName}.`;
+                } else if (query.match(/business unit|\bbu\b/)) {
+                    const bus = new Set(contextData.map(d => d["Bussines Unit"])).size;
+                    answer = `**${formatNum(bus)} Business Units** in ${contextName}.`;
+                } else if (query.match(/wood/)) {
+                    const n = contextData.filter(d => (d["Type of Pole"] || "").toUpperCase().includes('WOOD')).length;
+                    answer = `Wooden Poles in ${contextName}: **${formatNum(n)}**`;
+                } else if (query.match(/concrete|conc/)) {
+                    const n = contextData.filter(d => (d["Type of Pole"] || "").toUpperCase().includes('CONCRETE')).length;
+                    answer = `Concrete Poles in ${contextName}: **${formatNum(n)}**`;
+                } else if (query.match(/vendor/)) {
+                    const vs = {};
+                    contextData.forEach(d => { vs[d.Vendor_Name] = (vs[d.Vendor_Name] || 0) + 1; });
+                    const list = Object.entries(vs).map(([v, c]) => `**${v}**: ${formatNum(c)}`).join('<br>');
+                    answer = `**Vendor Breakdown** (${contextName}):<br>${list}<br>Total: **${formatNum(contextData.length)}**`;
+                } else {
+                    answer = `Total Poles in ${contextName}: **${formatNum(contextData.length)}** (from ${formatNum(globalData.length)} total).`;
+                }
+            }
+
+            // LIST FEEDERS
+            else if (intent === "list_feeders") {
+                const counts = {};
+                contextData.forEach(d => { if (d.Feeder) counts[d.Feeder] = (counts[d.Feeder] || 0) + 1; });
+                const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                const list = sorted.slice(0, customLimit).map((f, i) => `${i + 1}. **${f[0]}** — ${formatNum(f[1])} poles`).join('<br>');
+                answer = `**Feeders in ${contextName}** (${sorted.length} total, showing top ${Math.min(customLimit, sorted.length)}):<br>${list}`;
+            }
+
+            // LIST DTs
+            else if (intent === "list_dts") {
+                const counts = {};
+                contextData.forEach(d => { if (d["DT Name"]) counts[d["DT Name"]] = (counts[d["DT Name"]] || 0) + 1; });
+                const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                const list = sorted.slice(0, customLimit).map((dt, i) => `${i + 1}. **${dt[0]}** — ${formatNum(dt[1])} poles`).join('<br>');
+                answer = `**DTs in ${contextName}** (${sorted.length} total, showing top ${Math.min(customLimit, sorted.length)}):<br>${list}`;
+            }
+
+            // LIST UNDERTAKINGS
+            else if (intent === "list_uts") {
+                const counts = {};
+                contextData.forEach(d => { if (d.Undertaking) counts[d.Undertaking] = (counts[d.Undertaking] || 0) + 1; });
+                const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                const list = sorted.slice(0, customLimit).map((u, i) => `${i + 1}. **${u[0]}** — ${formatNum(u[1])} poles`).join('<br>');
+                answer = `**Undertakings in ${contextName}** (${sorted.length} total):<br>${list}`;
+            }
+
+            // LIST BUSINESS UNITS
+            else if (intent === "list_bus") {
+                const counts = {};
+                contextData.forEach(d => { if (d["Bussines Unit"]) counts[d["Bussines Unit"]] = (counts[d["Bussines Unit"]] || 0) + 1; });
+                const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                const list = sorted.slice(0, customLimit).map((b, i) => `${i + 1}. **${b[0]}** — ${formatNum(b[1])} poles`).join('<br>');
+                answer = `**Business Units in ${contextName}** (${sorted.length} total):<br>${list}`;
+            }
+
+            // FALLBACK — Smart Search
             else {
-                // 1. Is it a User Name?
+                // 1. Try user name lookup
                 const allUsers = Object.keys(userFullNames).concat(Object.values(userFullNames));
                 const closeUser = findClosestEntity(query, allUsers);
 
                 if (closeUser) {
-                    // Resolve back to ID if it's a full name
                     let userId = closeUser;
                     if (Object.values(userFullNames).includes(closeUser)) {
                         userId = Object.keys(userFullNames).find(key => userFullNames[key] === closeUser);
                     }
-
                     const userRecs = data.filter(d => d.User === userId);
                     if (userRecs.length > 0) {
-                        const dates = new Set(userRecs.map(d => d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : ''));
-                        answer = `**${getDisplayName(userId)}** has captured **${userRecs.length} assets** over ${dates.size} days.`;
+                        const rr = getRunRate(userRecs);
+                        const df = getDefectStats(userRecs);
+                        const uts = new Set(userRecs.map(d => d.Undertaking)).size;
+                        const vendor = userRecs[0].Vendor_Name || 'Unknown';
+                        const pTypes = getPoleTypes(userRecs);
+                        const typeStr = Object.entries(pTypes).map(([k, v]) => `${k}: ${v}`).join(', ');
+
+                        answer = `**${getDisplayName(userId)}** — Officer Profile:<br><br>` +
+                            `Vendor: **${vendor}**<br>` +
+                            `Total Poles: **${formatNum(userRecs.length)}**<br>` +
+                            `Run Rate: **${rr.rate}/day** (${rr.days} active days)<br>` +
+                            `Defect Rate: **${df.pct}%** (${df.bad} defects)<br>` +
+                            `Undertakings Covered: **${uts}**<br>` +
+                            `Pole Types: ${typeStr}`;
                     } else {
-                        answer = `I found user "${closeUser}" but they have no records in this dataset.`;
+                        answer = `I found user "**${getDisplayName(userId) || closeUser}**" but they have no records in the current view.`;
                     }
                 }
-                // 2. Is it a generic search term present in the data? (e.g. "Abule" in address)
+                // 2. Try matching a specific feeder name
+                else if (findClosestEntity(query, allFeeders)) {
+                    const feeder = findClosestEntity(query, allFeeders);
+                    const fData = data.filter(d => d.Feeder === feeder);
+                    const rr = getRunRate(fData);
+                    const df = getDefectStats(fData);
+                    const users = new Set(fData.map(d => d.User)).size;
+                    const dts = new Set(fData.map(d => d["DT Name"])).size;
+                    answer = `**Feeder: ${feeder}**<br><br>` +
+                        `Poles: **${formatNum(fData.length)}** | DTs: **${dts}** | Users: **${users}**<br>` +
+                        `Run Rate: **${rr.rate}/day** | Defects: **${df.pct}%**`;
+                }
+                // 3. Try matching a specific DT name
+                else if (findClosestEntity(query, allDTs)) {
+                    const dt = findClosestEntity(query, allDTs);
+                    const dtData = data.filter(d => d["DT Name"] === dt);
+                    const rr = getRunRate(dtData);
+                    const users = new Set(dtData.map(d => d.User)).size;
+                    answer = `**DT: ${dt}**<br><br>` +
+                        `Poles: **${formatNum(dtData.length)}** | Users: **${users}** | Run Rate: **${rr.rate}/day**`;
+                }
+                // 4. Generic text search across all fields
                 else {
-                    const matches = data.filter(row => {
-                        return Object.values(row).some(val =>
-                            val && String(val).toLowerCase().includes(query)
-                        );
-                    });
-
+                    const matches = data.filter(row =>
+                        Object.values(row).some(val => val && String(val).toLowerCase().includes(query))
+                    );
                     if (matches.length > 0) {
-                        answer = `I found **${matches.length}** records containing "**${rawQuery}**".`;
-                        if (matches.length < 5) {
-                            answer += "<br>Matches: " + matches.map(m => m["DT Name"] || m["Pole ID"]).join(', ');
+                        const rr = getRunRate(matches);
+                        const users = new Set(matches.map(d => d.User)).size;
+                        answer = `Found **${formatNum(matches.length)}** records matching "**${rawQuery}**".<br>` +
+                            `Users involved: **${users}** | Run Rate: **${rr.rate}/day**`;
+                        if (matches.length <= 5) {
+                            answer += '<br><br>Records:<br>' + matches.map(m =>
+                                `${m["DT Name"] || 'N/A'} — ${m.User ? getDisplayName(m.User) : 'N/A'} — ${m["Date/timestamp"] || ''}`
+                            ).join('<br>');
                         }
                     } else {
-                        answer = "I couldn't find a direct answer. Try asking for 'Top Users', 'Run Rate', or 'Defects'.";
+                        answer = "I couldn't find a match. Try questions like:<br>" +
+                            "• **'Summary'** — full dashboard overview<br>" +
+                            "• **'Top 10 users'** — best performing officers<br>" +
+                            "• **'Compare ETC vs Ikeja'** — vendor comparison<br>" +
+                            "• **'BOQ targets'** — bill of quantities<br>" +
+                            "• **'Trend last 7 days'** — activity timeline<br>" +
+                            "• **'Pole types'** — material distribution<br>" +
+                            "• **'Issues in Ikeja Electric'** — defect analysis<br>" +
+                            "• Any **user name**, **feeder**, **DT**, or **area name**";
                     }
                 }
             }
 
+            // If context was applied, add a context note
+            if (contextParts.length > 0 && answer && !answer.startsWith("I couldn't")) {
+                answer += `<br><br><small>Context: ${contextName}</small>`;
+            }
+
             // Typewriter Animation
             const typeWriter = (text, element) => {
-                element.innerHTML = ''; // Clear loading
+                element.innerHTML = '';
                 element.classList.add('ai-cursor');
-                let i = 0;
-                // Pre-process HTML tags so we don't type them out character by character
-                // Simple approach: Replace bold/br tags after typing?
-                // Better approach: Split by logic. But for speed, let's just insert the full formatted HTML string
-                // but use a hacky visual delay, OR just type plain text.
-                // Since we need HTML (bolding), let's render invisible text then reveal characters?
-                // Or just append chars. If we hit '<', find '>' and append the whole tag.
-
                 const formattedHtml = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-                let visibleText = "";
-                let tagBuffer = "";
-                let inTag = false;
-
-                // We need to parse the HTML string to type it nicely
-                // Simplification for stability: Just use interval on the formatted string
-                // If char is <, fast forward until >
-
                 let index = 0;
-                const speed = 15; // ms
-
+                const speed = 12;
                 function type() {
                     if (index < formattedHtml.length) {
                         let char = formattedHtml.charAt(index);
-
                         if (char === '<') {
-                            // Find the closing >
                             let endTag = formattedHtml.indexOf('>', index);
                             if (endTag !== -1) {
                                 element.innerHTML += formattedHtml.substring(index, endTag + 1);
                                 index = endTag + 1;
-                            } else {
-                                element.innerHTML += char;
-                                index++;
-                            }
-                        } else {
-                            element.innerHTML += char;
-                            index++;
-                        }
+                            } else { element.innerHTML += char; index++; }
+                        } else { element.innerHTML += char; index++; }
                         setTimeout(type, speed);
-                    } else {
-                        element.classList.remove('ai-cursor'); // Stop blinking cursor
-                    }
+                    } else { element.classList.remove('ai-cursor'); }
                 }
                 type();
             };
 
             typeWriter(answer, responseEl);
 
-        }, 1200); // Increased delay to show off the loading animation
+        }, 1200);
     }
 
     function updateExecutiveSummary(data) {
