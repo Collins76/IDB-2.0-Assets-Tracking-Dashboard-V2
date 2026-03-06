@@ -1249,6 +1249,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         });
 
+        if (typeof Highcharts === 'undefined') { console.warn('Highcharts not loaded, skipping pole type chart'); return; }
         Highcharts.chart('poleTypeChart', {
             chart: {
                 type: 'pie',
