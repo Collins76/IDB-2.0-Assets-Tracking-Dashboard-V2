@@ -281,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         populateFilters();
         updateDashboard();
-        updateExecutiveSummary(globalData);
+        updateExecutiveSummary();
 
         document.querySelectorAll('.last-updated').forEach(el => {
             el.textContent = `Last Updated: ${new Date().toLocaleTimeString()}`;
@@ -956,54 +956,151 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1200);
     }
 
-    function updateExecutiveSummary(data) {
-        if (!data || data.length === 0) return;
+    function updateExecutiveSummary() {
+        const container = document.getElementById('exec-dynamic-content');
+        if (!container) return;
+        const data = filteredData.length > 0 ? filteredData : globalData;
+        if (!data || data.length === 0) { container.innerHTML = '<p style="color:var(--text-secondary);">No data available.</p>'; return; }
 
-        // 1. Update Counts
-        document.getElementById('exec-total-assets').textContent = data.length.toLocaleString();
+        const total = data.length;
+        const fmt = n => typeof n === 'number' ? n.toLocaleString() : n;
 
-        const countPoles = data.length; // Assuming all rows are poles/assets for this context
-        document.getElementById('exec-count-poles').textContent = countPoles.toLocaleString();
+        // Dates & velocity
+        const dateStrings = data.map(d => d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : '').filter(Boolean);
+        const dates = [...new Set(dateStrings)].sort();
+        const activeDays = dates.length || 1;
+        const runRate = (total / activeDays).toFixed(1);
+        const TARGET = 50;
 
-        const countDTs = new Set(data.map(d => d["DT Name"])).size;
-        document.getElementById('exec-count-dts').textContent = countDTs.toLocaleString();
+        // Trend
+        const recent = dates.slice(-3);
+        const prior = dates.slice(-6, -3);
+        const recentCount = data.filter(d => recent.includes((d["Date/timestamp"] || '').split(' ')[0])).length;
+        const priorCount = data.filter(d => prior.includes((d["Date/timestamp"] || '').split(' ')[0])).length;
+        const recentRate = recent.length > 0 ? Math.round(recentCount / recent.length) : 0;
+        const priorRate = prior.length > 0 ? Math.round(priorCount / prior.length) : 0;
+        const trendPct = priorRate > 0 ? Math.round(((recentRate - priorRate) / priorRate) * 100) : 0;
+        const trending = trendPct > 5 ? 'accelerating' : trendPct < -5 ? 'decelerating' : 'holding steady';
+        const trendColor = trendPct > 5 ? '#10b981' : trendPct < -5 ? '#ef4444' : '#eab308';
 
-        const countFeeders = new Set(data.map(d => d["Feeder"])).size;
-        document.getElementById('exec-count-feeders').textContent = countFeeders.toLocaleString();
-
-        const countUsers = new Set(data.map(d => d["User"])).size;
-        document.getElementById('exec-total-officers').textContent = countUsers.toLocaleString();
-
-        // 2. Calculate Run Rate
-        const dates = new Set(data.map(d => d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : ''));
-        const daysWorked = dates.size || 1;
-        const avgRate = (data.length / daysWorked).toFixed(1);
-        document.getElementById('exec-avg-rate').textContent = avgRate;
-
-        // 3. Dynamic Status Text
-        const statusEl = document.getElementById('exec-status-text');
-
-        // Vendor comparison
+        // Vendors
         const vendorCounts = {};
-        data.forEach(d => vendorCounts[d.Vendor_Name] = (vendorCounts[d.Vendor_Name] || 0) + 1);
-
+        data.forEach(d => { vendorCounts[d.Vendor_Name || 'Other'] = (vendorCounts[d.Vendor_Name || 'Other'] || 0) + 1; });
         const sortedVendors = Object.entries(vendorCounts).sort((a, b) => b[1] - a[1]);
-        const topVendor = sortedVendors[0];
+        const vColors = { 'ETC Workforce': '#0EA5E9', 'Jesom Technology': '#f97316', 'Ikeja Electric': '#eab308' };
 
-        let statusText = `Data processing complete. <strong>${topVendor[0]}</strong> is currently leading with ${((topVendor[1] / data.length) * 100).toFixed(1)}% of total capture. `;
+        // Officers
+        const userCounts = {};
+        data.forEach(d => { if (d.User) userCounts[d.User] = (userCounts[d.User] || 0) + 1; });
+        const totalUsers = Object.keys(userCounts).length;
+        const sortedUsers = Object.entries(userCounts).sort((a, b) => b[1] - a[1]);
+        const topOfficer = sortedUsers[0];
 
-        if (avgRate < 100) { // Arbitrary project wide target
-            statusText += `Overall project velocity (${avgRate}/day) requires improvement to strictly meet timelines.`;
-            statusEl.style.color = '#f59e0b'; // Orangeish
-        } else {
-            statusText += `Project velocity is healthy at ${avgRate} assets per day.`;
-            statusEl.style.color = '#10b981'; // Green
-        }
-        statusEl.innerHTML = statusText;
+        // Coverage
+        const feederCount = new Set(data.map(d => d.Feeder).filter(Boolean)).size;
+        const dtCount = new Set(data.map(d => d["DT Name"]).filter(Boolean)).size;
+        const utCount = new Set(data.map(d => d.Undertaking).filter(Boolean)).size;
+        const buCount = new Set(data.map(d => d["Bussines Unit"]).filter(Boolean)).size;
 
-        // 4. Update Recommendation Badges potentially?
-        // We can do this by checking stats for ETC and Jesom specifically
-        // But for now, the static structure matches the user request "make executive summary update".
+        // Defects
+        const defects = data.filter(d => d.Issue_Type && d.Issue_Type !== 'Good Condition').length;
+        const defectPct = ((defects / total) * 100).toFixed(1);
+        const healthColor = parseFloat(defectPct) > 25 ? '#ef4444' : parseFloat(defectPct) > 15 ? '#eab308' : '#10b981';
+
+        // BOQ
+        const boqTotal = boqData.length > 0 ? boqData.reduce((s, d) => s + (parseInt(d["POLES Grand Total"]) || 0), 0) : 0;
+        const completionPct = boqTotal > 0 ? Math.min(((total / boqTotal) * 100), 100).toFixed(1) : null;
+
+        // Pole types
+        const poleTypes = {};
+        data.forEach(d => { const t = (d["Type of Pole"] || 'Unknown').toUpperCase(); poleTypes[t] = (poleTypes[t] || 0) + 1; });
+        const dominantPole = Object.entries(poleTypes).sort((a, b) => b[1] - a[1])[0];
+        const dominantPolePct = dominantPole ? ((dominantPole[1] / total) * 100).toFixed(0) : 0;
+
+        // Date range
+        const firstDate = dates[0] || 'N/A';
+        const lastDate = dates[dates.length - 1] || 'N/A';
+
+        // Velocity verdict
+        let velocityVerdict, velocityColor;
+        if (runRate >= TARGET) { velocityVerdict = 'on target'; velocityColor = '#10b981'; }
+        else if (runRate >= TARGET * 0.7) { velocityVerdict = 'approaching target'; velocityColor = '#eab308'; }
+        else { velocityVerdict = 'below target'; velocityColor = '#ef4444'; }
+
+        // Vendor race mini bars
+        const vendorBars = sortedVendors.map(([name, count]) => {
+            const pct = ((count / total) * 100).toFixed(0);
+            const color = vColors[name] || '#6b7280';
+            return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                <span style="font-size:0.8rem;min-width:110px;color:${color};font-weight:600;">${name}</span>
+                <div style="flex:1;height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">
+                    <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;"></div>
+                </div>
+                <span style="font-size:0.78rem;color:var(--text-secondary);min-width:65px;text-align:right;">${fmt(count)} (${pct}%)</span>
+            </div>`;
+        }).join('');
+
+        container.innerHTML = `
+            <!-- Narrative -->
+            <p style="line-height:1.7;margin-bottom:12px;">
+                Across <strong>${buCount} Business Unit${buCount > 1 ? 's' : ''}</strong>,
+                <strong style="color:hsl(var(--primary));">${fmt(total)} assets</strong> have been captured
+                by <strong>${totalUsers} field officers</strong> over ${activeDays} active days
+                (${firstDate} — ${lastDate}).
+                The project is running at <strong style="color:${velocityColor};">${runRate} poles/day</strong>
+                — <strong style="color:${velocityColor};">${velocityVerdict}</strong> (target: ${TARGET}/day)
+                and <strong style="color:${trendColor};">${trending}</strong>
+                ${Math.abs(trendPct) > 0 ? `(${trendPct > 0 ? '+' : ''}${trendPct}%)` : ''} over recent days.
+            </p>
+
+            ${completionPct !== null ? `
+            <!-- BOQ Progress -->
+            <div style="margin-bottom:14px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <span style="font-size:0.85rem;font-weight:600;color:var(--text-secondary);">BOQ Progress</span>
+                    <span style="font-size:0.95rem;font-weight:700;color:${parseFloat(completionPct) >= 50 ? '#10b981' : '#eab308'};">${completionPct}%</span>
+                </div>
+                <div style="height:8px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;">
+                    <div style="height:100%;width:${completionPct}%;background:${parseFloat(completionPct) >= 50 ? '#10b981' : '#eab308'};border-radius:4px;transition:width 0.5s;"></div>
+                </div>
+                <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:3px;">${fmt(total)} of ${fmt(boqTotal)} target poles</div>
+            </div>
+            ` : ''}
+
+            <!-- Vendor Race -->
+            <div style="margin-bottom:14px;">
+                <span style="font-size:0.85rem;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">Vendor Contribution</span>
+                ${vendorBars}
+            </div>
+
+            <!-- Key Facts Row -->
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
+                <span style="background:rgba(14,165,233,0.1);padding:5px 12px;border-radius:6px;color:#0EA5E9;font-size:0.85rem;font-weight:600;">⚡ ${fmt(total)} Poles</span>
+                <span style="background:rgba(249,115,22,0.1);padding:5px 12px;border-radius:6px;color:#f97316;font-size:0.85rem;font-weight:600;">🏙️ ${dtCount} DTs</span>
+                <span style="background:rgba(16,185,129,0.1);padding:5px 12px;border-radius:6px;color:#10b981;font-size:0.85rem;font-weight:600;">🔌 ${feederCount} Feeders</span>
+                <span style="background:rgba(234,179,8,0.1);padding:5px 12px;border-radius:6px;color:#eab308;font-size:0.85rem;font-weight:600;">📍 ${utCount} Undertakings</span>
+            </div>
+
+            <!-- Insights Row -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.82rem;">
+                <div style="background:rgba(255,255,255,0.02);padding:8px 10px;border-radius:6px;border-left:3px solid ${healthColor};">
+                    <div style="color:var(--text-secondary);font-size:0.75rem;">Asset Health</div>
+                    <div style="font-weight:700;color:${healthColor};">${(100 - parseFloat(defectPct)).toFixed(1)}% Good <span style="font-weight:400;color:var(--text-secondary);">/ ${defectPct}% defects</span></div>
+                </div>
+                <div style="background:rgba(255,255,255,0.02);padding:8px 10px;border-radius:6px;border-left:3px solid hsl(var(--primary));">
+                    <div style="color:var(--text-secondary);font-size:0.75rem;">Top Officer</div>
+                    <div style="font-weight:700;color:hsl(var(--foreground));">${topOfficer ? getDisplayName(topOfficer[0]) : 'N/A'} <span style="font-weight:400;color:var(--text-secondary);">(${topOfficer ? fmt(topOfficer[1]) : 0} poles)</span></div>
+                </div>
+                <div style="background:rgba(255,255,255,0.02);padding:8px 10px;border-radius:6px;border-left:3px solid #eab308;">
+                    <div style="color:var(--text-secondary);font-size:0.75rem;">Dominant Material</div>
+                    <div style="font-weight:700;color:hsl(var(--foreground));">${dominantPole ? dominantPole[0].charAt(0) + dominantPole[0].slice(1).toLowerCase() : 'N/A'} <span style="font-weight:400;color:var(--text-secondary);">(${dominantPolePct}%)</span></div>
+                </div>
+                <div style="background:rgba(255,255,255,0.02);padding:8px 10px;border-radius:6px;border-left:3px solid #f97316;">
+                    <div style="color:var(--text-secondary);font-size:0.75rem;">Avg per Officer</div>
+                    <div style="font-weight:700;color:hsl(var(--foreground));">${totalUsers > 0 ? Math.round(total / totalUsers) : 0} poles <span style="font-weight:400;color:var(--text-secondary);">/ ${totalUsers} officers</span></div>
+                </div>
+            </div>
+        `;
     }
 
     function populateFilters() {
@@ -1059,17 +1156,16 @@ document.addEventListener('DOMContentLoaded', () => {
         upriserSelect.innerHTML = '<option value="All">All Uprisers</option>';
         feederSelect.innerHTML = '<option value="All">All Feeders</option>';
         dateSelect.innerHTML = '<option value="All">All Dates</option>';
-        // Material filter was static options in HTML? No, it was dynamic in logic? 
-        // No, material filter options were HARDCODED in HTML in the index.html file!
-        // <option value="Concrete">Concrete</option>
-        // But here we are populating it?? 
-        // Wait, the original `populateFilters` Code I read:
-        // `document.getElementById('materialFilter').addEventListener...`
-        // It did NOT populate materialFilter in the JS. Check line 144-206. 
-        // vendor, bu, ut, user, dt, upriser, feeder, date. NO material.
-        // So I should leave Material alone or handle it if I want it dynamic.
-        // request: "the other filter should only display what I have selected on any vendor"
-        // I will leave Material static as it was not in `populateFilters`.
+
+        // Dynamically populate Pole Material filter from actual data
+        materialSelect.innerHTML = '<option value="">All Materials</option>';
+        const materials = [...new Set(data.map(item => (item["Type of Pole"] || '').trim().toUpperCase()).filter(Boolean))].sort();
+        materials.forEach(mat => {
+            const opt = document.createElement('option');
+            opt.value = mat;
+            opt.textContent = mat.charAt(0) + mat.slice(1).toLowerCase();
+            materialSelect.appendChild(opt);
+        });
 
         // Get unique values from the PROVIDED data
         const bus = [...new Set(data.map(item => item["Bussines Unit"]))].filter(Boolean).sort();
@@ -1258,14 +1354,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const dateVal = document.getElementById('dateFilter').value;
 
         filteredData = globalData.filter(item => {
-            // Material check
-            const mat = String(item["Pole Material"] || item["Material"] || item["Pole_Material"] || "").toLowerCase();
-            const poleType = String(item["Type of Pole"] || "").toLowerCase();
-
-            const matMatch = (matVal === "" ||
-                (matVal === "Concrete" && (mat.includes('concrete') || poleType.includes('concrete'))) ||
-                (matVal === "Wood" && (mat.includes('wood') || poleType.includes('wood')))
-            );
+            // Material check — matVal is now uppercase from dynamic options (e.g. "CONCRETE")
+            const poleType = (item["Type of Pole"] || '').trim().toUpperCase();
+            const matMatch = (matVal === "" || poleType === matVal);
 
             return (vendorVal === 'All' || item["Vendor_Name"] === vendorVal) &&
                 (buVal === 'All' || item["Bussines Unit"] === buVal) &&
@@ -1312,6 +1403,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderMap();
         updateKeyInsights();
         renderStrategicRecommendations();
+        updateExecutiveSummary();
     }
 
 
