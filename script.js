@@ -1487,82 +1487,104 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 2. Project Velocity (Area Chart Comparison)
     function renderProjectVelocityChart() {
-        // Group by Date and Vendor
-        const dateVendorCounts = {}; // { "date": { "ETC": count, "Jesom": count, "Ikeja": count } }
+        const dateVendorCounts = {};
 
         filteredData.forEach(d => {
-            const date = d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : 'Unknown'; // Extract Date part
+            const raw = d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : '';
+            if (!raw) return;
             const vendor = d.Vendor_Name;
-
-            if (!dateVendorCounts[date]) {
-                dateVendorCounts[date] = { 'ETC Workforce': 0, 'Jesom Technology': 0, 'Ikeja Electric': 0, 'Other': 0 };
+            if (!dateVendorCounts[raw]) {
+                dateVendorCounts[raw] = { 'ETC Workforce': 0, 'Jesom Technology': 0, 'Ikeja Electric': 0 };
             }
-            if (dateVendorCounts[date][vendor] !== undefined) {
-                dateVendorCounts[date][vendor]++;
-            } else {
-                // Try to be smart about 'Other' merging into one if needed, but for now allow separate
-                dateVendorCounts[date]['Other']++;
-            }
+            if (dateVendorCounts[raw][vendor] !== undefined) dateVendorCounts[raw][vendor]++;
         });
 
-        // Sort dates
-        const sortedDates = Object.keys(dateVendorCounts).sort((a, b) => new Date(a) - new Date(b));
+        // Parse and sort dates properly
+        const parseDateStr = (s) => {
+            // Handle dd/mm/yyyy or mm/dd/yyyy — assume dd/mm/yyyy based on data sample
+            const parts = s.split('/');
+            if (parts.length === 3) {
+                return new Date(parts[2], parts[1] - 1, parts[0]);
+            }
+            return new Date(s);
+        };
 
-        const yETC = sortedDates.map(date => dateVendorCounts[date]['ETC Workforce']);
-        const yJesom = sortedDates.map(date => dateVendorCounts[date]['Jesom Technology']);
-        const yIkeja = sortedDates.map(date => dateVendorCounts[date]['Ikeja Electric']);
+        const sortedRaw = Object.keys(dateVendorCounts).sort((a, b) => parseDateStr(a) - parseDateStr(b));
 
+        // Format dates as readable labels
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const dateLabels = sortedRaw.map(s => {
+            const d = parseDateStr(s);
+            return `${months[d.getMonth()]} ${d.getDate()}`;
+        });
+
+        const yETC = sortedRaw.map(d => dateVendorCounts[d]['ETC Workforce']);
+        const yJesom = sortedRaw.map(d => dateVendorCounts[d]['Jesom Technology']);
+        const yIkeja = sortedRaw.map(d => dateVendorCounts[d]['Ikeja Electric']);
+
+        // Stacked bar chart — each vendor's daily contribution is clearly visible
         const traceETC = {
-            x: sortedDates,
-            y: yETC,
-            name: 'ETC Workforce',
-            type: 'scatter',
-            mode: 'lines+markers',
-            fill: 'tozeroy',
-            line: { color: '#0EA5E9' },
-            marker: { size: 6 }
+            x: dateLabels, y: yETC, name: 'ETC Workforce', type: 'bar',
+            marker: { color: '#0EA5E9' },
+            hovertemplate: 'ETC: %{y} poles<extra></extra>'
         };
-
         const traceJesom = {
-            x: sortedDates,
-            y: yJesom,
-            name: 'Jesom Technology',
-            type: 'scatter',
-            mode: 'lines+markers',
-            fill: 'tozeroy',
-            line: { color: '#f97316' },
-            marker: { size: 6 }
+            x: dateLabels, y: yJesom, name: 'Jesom Technology', type: 'bar',
+            marker: { color: '#f97316' },
+            hovertemplate: 'Jesom: %{y} poles<extra></extra>'
+        };
+        const traceIkeja = {
+            x: dateLabels, y: yIkeja, name: 'Ikeja Electric', type: 'bar',
+            marker: { color: '#eab308' },
+            hovertemplate: 'Ikeja: %{y} poles<extra></extra>'
         };
 
-        const traceIkeja = {
-            x: sortedDates,
-            y: yIkeja,
-            name: 'Ikeja Electric',
-            type: 'scatter',
+        // Cumulative total line overlay
+        let cumulative = 0;
+        const yCumulative = sortedRaw.map(d => {
+            cumulative += dateVendorCounts[d]['ETC Workforce'] + dateVendorCounts[d]['Jesom Technology'] + dateVendorCounts[d]['Ikeja Electric'];
+            return cumulative;
+        });
+        const traceCumulative = {
+            x: dateLabels, y: yCumulative, name: 'Cumulative Total', type: 'scatter',
             mode: 'lines+markers',
-            fill: 'tozeroy',
-            line: { color: '#eab308' },
-            marker: { size: 6 }
+            line: { color: '#10b981', width: 2, dash: 'dot' },
+            marker: { size: 4, color: '#10b981' },
+            yaxis: 'y2',
+            hovertemplate: 'Total: %{y} poles<extra></extra>'
         };
 
         const layout = {
-            background_color: '#333333', // Dark background for chart area per image appearance (optional but sticking to theme first)
             paper_bgcolor: 'rgba(0,0,0,0)',
-            plot_bgcolor: 'rgba(255,255,255,0.02)', // Slightly lighter plot area
-            font: { color: '#fafafa' },
+            plot_bgcolor: 'rgba(255,255,255,0.02)',
+            font: { color: '#e4e5e7', size: 11 },
+            barmode: 'stack',
             xaxis: {
                 title: '',
-                tickformat: '%b %d',
-                tickangle: -45,
-                dtick: sortedDates.length > 20 ? 86400000 * 3 : 86400000
+                tickangle: sortedRaw.length > 15 ? -45 : 0,
+                tickfont: { size: 10 },
+                gridcolor: 'rgba(255,255,255,0.05)'
             },
-            yaxis: { title: '' },
-            margin: { t: 40, l: 40, r: 20, b: 100 },
+            yaxis: {
+                title: 'Daily Poles',
+                titlefont: { size: 11 },
+                gridcolor: 'rgba(255,255,255,0.06)'
+            },
+            yaxis2: {
+                title: 'Cumulative',
+                titlefont: { size: 11, color: '#10b981' },
+                tickfont: { color: '#10b981' },
+                overlaying: 'y',
+                side: 'right',
+                showgrid: false
+            },
+            margin: { t: 20, l: 50, r: 55, b: sortedRaw.length > 15 ? 90 : 50 },
             showlegend: true,
-            legend: { orientation: "h", y: -0.45, x: 0.5, xanchor: 'center' }
+            legend: { orientation: 'h', y: -0.35, x: 0.5, xanchor: 'center', font: { size: 11 } },
+            bargap: 0.15
         };
 
-        Plotly.newPlot('projectVelocityChart', [traceETC, traceJesom, traceIkeja], layout, { responsive: true });
+        Plotly.newPlot('projectVelocityChart', [traceETC, traceJesom, traceIkeja, traceCumulative], layout, { responsive: true });
     }
 
     // 3. Pole Type Distribution (highcharts 3D Pie Chart)
