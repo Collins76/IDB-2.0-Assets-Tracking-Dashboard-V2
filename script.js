@@ -2695,142 +2695,243 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 8. Render Strategic Recommendations (Dynamic)
     function renderStrategicRecommendations() {
-        // Use globalData to ensure recommendations stand regardless of transient filters
-        // unless we want them to reflect the filtered view. Strategic usually implies overall.
-        // Let's use globalData for stability.
-
         const vendors = ['ETC Workforce', 'Jesom Technology', 'Ikeja Electric'];
+        const TARGET_RATE = 50;
+
+        // Use filteredData so cards react to filter changes; globalData as benchmark
+        const activeData = filteredData.length > 0 ? filteredData : globalData;
+        const globalTotal = activeData.length;
+        const globalDefects = activeData.filter(d => d.Issue_Type && d.Issue_Type !== 'Good Condition').length;
+        const globalDefectPct = globalTotal > 0 ? ((globalDefects / globalTotal) * 100) : 0;
+
+        // BOQ target for completion context
+        const boqTotal = boqData.length > 0
+            ? boqData.reduce((s, d) => s + (parseInt(d["POLES Grand Total"]) || 0), 0)
+            : 0;
 
         vendors.forEach(vendor => {
-            // Filter Data for Vendor
-            const vData = globalData.filter(d => d.Vendor_Name === vendor);
-
+            const vData = activeData.filter(d => d.Vendor_Name === vendor);
             const idKey = vendor.split(' ')[0].toLowerCase();
             const badge = document.getElementById(`status-badge-${idKey}`);
             const content = document.getElementById(`rec-content-${idKey}`);
 
             if (vData.length === 0) {
-                if (badge) {
-                    badge.textContent = 'Pending Data';
-                    badge.className = 'status-badge status-attention';
-                }
-                if (content) {
-                    content.innerHTML = '<div class="rec-item"><p>Awaiting field captures from this vendor.</p></div>';
-                }
+                if (badge) { badge.textContent = 'Pending Data'; badge.className = 'status-badge status-attention'; }
+                if (content) { content.innerHTML = '<div class="rec-item"><p>Awaiting field captures from this vendor.</p></div>'; }
                 return;
             }
 
-            // --- Metrics Calculation ---
-
-            // 1. Run Rate
-            // distinct dates
-            const dates = new Set(vData.map(d => d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : ''));
-            const activeDays = dates.size || 1;
+            // --- Deep Metrics ---
             const totalRecords = vData.length;
-            const avgRate = (totalRecords / activeDays).toFixed(0); // Integer for readability
+            const shareOfTotal = ((totalRecords / globalTotal) * 100).toFixed(1);
 
-            // 2. Coverage (Undertakings)
-            const activeUTs = new Set(vData.map(d => d.Undertaking)).size;
-
-            // 3. Quality (Defect Rate)
-            const badPoles = vData.filter(d => d.Issue_Type && d.Issue_Type !== 'Good Condition').length;
-            const defectPct = ((badPoles / totalRecords) * 100).toFixed(1);
-
-            // 4. Synchronization (Last Date)
-            // Assumes yyyy-mm-dd or similar sortable via Date parse
+            // Dates & velocity
+            const dateStrings = vData.map(d => d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : '').filter(Boolean);
+            const dates = new Set(dateStrings);
+            const activeDays = dates.size || 1;
+            const avgRate = Math.round(totalRecords / activeDays);
             const sortedDates = Array.from(dates).sort();
             const lastDateISO = sortedDates[sortedDates.length - 1];
+            const firstDateISO = sortedDates[0];
+
+            // Recent trend: last 5 active days vs previous 5
+            const recentDays = sortedDates.slice(-5);
+            const prevDays = sortedDates.slice(-10, -5);
+            const recentCount = vData.filter(d => { const ds = d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : ''; return recentDays.includes(ds); }).length;
+            const prevCount = vData.filter(d => { const ds = d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : ''; return prevDays.includes(ds); }).length;
+            const recentRate = recentDays.length > 0 ? Math.round(recentCount / recentDays.length) : 0;
+            const prevRate = prevDays.length > 0 ? Math.round(prevCount / prevDays.length) : 0;
+            const trendDir = recentRate > prevRate ? 'accelerating' : recentRate < prevRate ? 'decelerating' : 'steady';
+            const trendDelta = prevRate > 0 ? Math.abs(Math.round(((recentRate - prevRate) / prevRate) * 100)) : 0;
+
+            // Users
+            const userCounts = {};
+            vData.forEach(d => { if (d.User) userCounts[d.User] = (userCounts[d.User] || 0) + 1; });
+            const sortedUsers = Object.entries(userCounts).sort((a, b) => b[1] - a[1]);
+            const totalUsers = sortedUsers.length;
+            const topUser = sortedUsers[0];
+            const bottomUser = sortedUsers[sortedUsers.length - 1];
+            const topUserName = topUser ? getDisplayName(topUser[0]) : 'N/A';
+            const bottomUserName = bottomUser ? getDisplayName(bottomUser[0]) : 'N/A';
+            const avgPerUser = totalUsers > 0 ? Math.round(totalRecords / totalUsers) : 0;
+
+            // Top user contribution %
+            const topUserPct = topUser ? ((topUser[1] / totalRecords) * 100).toFixed(1) : 0;
+
+            // Undertakings & concentration
+            const utCounts = {};
+            vData.forEach(d => { if (d.Undertaking) utCounts[d.Undertaking] = (utCounts[d.Undertaking] || 0) + 1; });
+            const sortedUTs = Object.entries(utCounts).sort((a, b) => b[1] - a[1]);
+            const activeUTs = sortedUTs.length;
+            const topUT = sortedUTs[0];
+            const bottomUT = sortedUTs[sortedUTs.length - 1];
+            const topUtPct = topUT ? ((topUT[1] / totalRecords) * 100).toFixed(0) : 0;
+
+            // DTs
+            const dtCount = new Set(vData.map(d => d["DT Name"])).size;
+            const feederCount = new Set(vData.map(d => d.Feeder)).size;
+
+            // Defect analysis
+            const badPoles = vData.filter(d => d.Issue_Type && d.Issue_Type !== 'Good Condition').length;
+            const defectPct = ((badPoles / totalRecords) * 100).toFixed(1);
+            const defectDiff = (parseFloat(defectPct) - globalDefectPct).toFixed(1);
+            const defectAboveAvg = parseFloat(defectDiff) > 0;
+
+            // Pole types
+            const poleTypes = {};
+            vData.forEach(d => { const t = (d["Type of Pole"] || 'Unknown').toUpperCase(); poleTypes[t] = (poleTypes[t] || 0) + 1; });
+            const concreteCount = Object.entries(poleTypes).filter(([k]) => k.includes('CONCRETE')).reduce((s, [, v]) => s + v, 0);
+            const woodCount = Object.entries(poleTypes).filter(([k]) => k.includes('WOOD')).reduce((s, [, v]) => s + v, 0);
+            const concretePct = totalRecords > 0 ? ((concreteCount / totalRecords) * 100).toFixed(0) : 0;
+            const woodPct = totalRecords > 0 ? ((woodCount / totalRecords) * 100).toFixed(0) : 0;
+
+            // Data freshness
             const lastDateObj = lastDateISO ? new Date(lastDateISO) : new Date();
-            const today = new Date();
-            // Diff in days
-            const diffTime = Math.abs(today - lastDateObj);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const diffDays = Math.ceil(Math.abs(new Date() - lastDateObj) / (1000 * 60 * 60 * 24));
 
+            // Completion vs BOQ
+            const completionPct = boqTotal > 0 ? ((totalRecords / boqTotal) * 100).toFixed(1) : null;
 
-            // --- Logic & Text Formatting ---
+            // --- STATUS DETERMINATION (multi-factor) ---
+            let statusScore = 0;
+            if (avgRate >= TARGET_RATE) statusScore += 2;
+            else if (avgRate >= 35) statusScore += 1;
+            if (parseFloat(defectPct) <= globalDefectPct) statusScore += 1;
+            if (trendDir === 'accelerating') statusScore += 1;
+            if (activeUTs >= 4) statusScore += 1;
+            if (diffDays <= 2) statusScore += 1;
 
-            let status = 'On Track';
-            let statusClass = 'status-good';
+            let status, statusClass;
+            if (statusScore >= 5) { status = 'Excelling'; statusClass = 'status-good'; }
+            else if (statusScore >= 3) { status = 'On Track'; statusClass = 'status-good'; }
+            else { status = 'Requires Attention'; statusClass = 'status-attention'; }
 
-            // Thresholds
-            const TARGET_RATE = 50;
+            // --- BUILD 5 DEEP RECOMMENDATIONS ---
+            const recs = [];
 
-            if (avgRate < TARGET_RATE) {
-                status = 'Requires Attention';
-                statusClass = 'status-attention';
-            }
-
-            // Rec 1: Velocity
-            let rec1 = {};
+            // 1. Velocity & Trend
+            const trendEmoji = trendDir === 'accelerating' ? '📈' : trendDir === 'decelerating' ? '📉' : '➡️';
             if (avgRate < 30) {
-                rec1.icon = '🚀';
-                rec1.title = 'Accelerate Deployment';
-                rec1.text = `Current velocity (${avgRate}/day) is critically low. Immediate resource scale-up is required to meet the daily target of ${TARGET_RATE}.`;
+                recs.push({
+                    icon: '🚨', title: 'Critical: Deployment Velocity',
+                    text: `Averaging only <strong>${avgRate} poles/day</strong> across ${activeDays} active days — well below the ${TARGET_RATE}/day target. ` +
+                        `Recent trend is <strong>${trendDir}</strong> ${trendDelta > 0 ? `(${trendDir === 'decelerating' ? '-' : '+'}${trendDelta}%)` : ''}. ` +
+                        `With ${totalUsers} officers, each averages ${avgPerUser} poles. Scaling up to ${Math.ceil(TARGET_RATE / Math.max(avgPerUser, 1))} officers or increasing individual output to ${Math.ceil(TARGET_RATE / Math.max(totalUsers, 1))}/day per officer is needed.`
+                });
             } else if (avgRate < TARGET_RATE) {
-                rec1.icon = '⚠️';
-                rec1.title = 'Increase Pace';
-                rec1.text = `Current velocity (${avgRate}/day) is approaching target but still falls short. Consider extending operational hours.`;
+                recs.push({
+                    icon: '⚠️', title: 'Velocity Gap Analysis',
+                    text: `Running at <strong>${avgRate} poles/day</strong> (${Math.round((avgRate / TARGET_RATE) * 100)}% of target). ` +
+                        `Trend is <strong>${trendDir}</strong> ${trendEmoji} — recent 5-day avg: ${recentRate}/day vs prior: ${prevRate}/day${trendDelta > 0 ? ` (${trendDir === 'decelerating' ? '-' : '+'}${trendDelta}% shift)` : ''}. ` +
+                        `Gap of <strong>${TARGET_RATE - avgRate} poles/day</strong> to close. ${totalUsers} officers need to add ~${Math.ceil((TARGET_RATE - avgRate) / Math.max(totalUsers, 1))} extra poles/day each.`
+                });
             } else {
-                rec1.icon = '⭐';
-                rec1.title = 'Sustain Momentum';
-                rec1.text = `Strong performance with a velocity of ${avgRate}/day. Keep this consistency to ensure project timelines are met.`;
+                recs.push({
+                    icon: '⭐', title: 'Strong Velocity Performance',
+                    text: `Delivering <strong>${avgRate} poles/day</strong> — exceeding the ${TARGET_RATE}/day target by ${avgRate - TARGET_RATE}. ` +
+                        `Trend is <strong>${trendDir}</strong> ${trendEmoji} (recent: ${recentRate}/day vs prior: ${prevRate}/day). ` +
+                        `${totalRecords.toLocaleString()} total poles captured across ${activeDays} active days with ${totalUsers} officers averaging ${avgPerUser} poles each.`
+                });
             }
 
-            // Rec 2: Coverage
-            let rec2 = {};
-            // Logic: Is it clustered?
-            // Simple heuristic: If high volume but low UT count -> Clustered.
-            if (activeUTs < 2 && totalRecords > 100) {
-                rec2.icon = '📍';
-                rec2.title = 'Expand Coverage';
-                rec2.text = `High activity concentration detected in only ${activeUTs} Undertaking. Redeploy teams to under-served areas to avoid data gaps.`;
+            // 2. Workforce Performance
+            if (totalUsers >= 2) {
+                const performanceGap = topUser[1] - bottomUser[1];
+                const gapMultiple = bottomUser[1] > 0 ? (topUser[1] / bottomUser[1]).toFixed(1) : '∞';
+                recs.push({
+                    icon: '👥', title: 'Workforce Performance',
+                    text: `<strong>${totalUsers} officers</strong> active (avg: ${avgPerUser} poles each). ` +
+                        `Top performer: <strong>${topUserName}</strong> with ${topUser[1].toLocaleString()} poles (${topUserPct}% of team output). ` +
+                        `Lowest: <strong>${bottomUserName}</strong> with ${bottomUser[1].toLocaleString()} poles — a <strong>${gapMultiple}x gap</strong>. ` +
+                        `${performanceGap > avgPerUser * 2 ? 'Significant disparity exists — consider pairing low performers with high performers for mentoring.' : 'Reasonable output distribution across the team.'}`
+                });
             } else {
-                rec2.icon = '🗺️';
-                rec2.title = 'Balanced Coverage';
-                rec2.text = `Active across ${activeUTs} Undertakings. Continue maintaining balanced visibility across the network.`;
+                recs.push({
+                    icon: '👤', title: 'Single Operator',
+                    text: `Only <strong>1 officer</strong> (${topUserName}) is active with ${totalRecords.toLocaleString()} poles. This is a single-point-of-failure risk. ` +
+                        `If this officer becomes unavailable, vendor output drops to zero. Consider deploying additional staff.`
+                });
             }
 
-            // Rec 3: Quality / Data Sync
-            let rec3 = {};
-            // Prio 1: specific defect issues
-            if (defectPct > 20) {
-                rec3.icon = '📝';
-                rec3.title = 'Enhanced Reporting';
-                rec3.text = `High defect rate (${defectPct}%). Ensure engineering validation is performed to confirm the accuracy of 'Bad' pole tags.`;
-            } else if (defectPct < 2) {
-                rec3.icon = '🎯';
-                rec3.title = 'Precision Check';
-                rec3.text = `Defect rate is unusually low (${defectPct}%). Conduct spot checks to ensure defects are not being overlooked.`;
-            } else if (diffDays > 3) {
-                rec3.icon = '🔄';
-                rec3.title = 'Data Synchronization';
-                rec3.text = `Data lag detected (last active: ${lastDateISO}). Enforce daily sync protocols to maintain real-time dashboard accuracy.`;
+            // 3. Coverage & Geographic Spread
+            const topUtName = topUT ? topUT[0] : 'N/A';
+            if (activeUTs < 3 && totalRecords > 50) {
+                recs.push({
+                    icon: '📍', title: 'Coverage Concentration Risk',
+                    text: `Work is concentrated in only <strong>${activeUTs} Undertaking${activeUTs > 1 ? 's' : ''}</strong> covering ${feederCount} feeders and ${dtCount} DTs. ` +
+                        `<strong>${topUtName}</strong> accounts for ${topUtPct}% of all activity. ` +
+                        `This creates blind spots in the network. Redistribute teams to unserved undertakings for broader asset visibility.`
+                });
             } else {
-                rec3.icon = '✅';
-                rec3.title = 'Quality Assurance';
-                rec3.text = `Data quality appears healthy (Defect Rate: ${defectPct}%). Continue standard verification procedures.`;
+                const spread = sortedUTs.slice(0, 3).map(([name, count]) => `${name} (${count})`).join(', ');
+                recs.push({
+                    icon: '🗺️', title: 'Network Coverage',
+                    text: `Spanning <strong>${activeUTs} Undertakings</strong>, ${feederCount} feeders, and ${dtCount} DTs. ` +
+                        `Heaviest activity: ${spread}. ` +
+                        `${bottomUT && bottomUT[1] < avgPerUser ? `<strong>${bottomUT[0]}</strong> has only ${bottomUT[1]} poles — consider allocating more resources there.` : 'Coverage is reasonably balanced across areas.'}`
+                });
             }
 
+            // 4. Quality & Defect Intelligence
+            const defectCompare = defectAboveAvg
+                ? `<strong>${Math.abs(parseFloat(defectDiff))}% above</strong> the project average of ${globalDefectPct.toFixed(1)}%`
+                : `<strong>${Math.abs(parseFloat(defectDiff))}% below</strong> the project average of ${globalDefectPct.toFixed(1)}%`;
+            if (parseFloat(defectPct) > 25) {
+                recs.push({
+                    icon: '🔍', title: 'High Defect Rate — Investigation Needed',
+                    text: `<strong>${defectPct}% defect rate</strong> (${badPoles.toLocaleString()} of ${totalRecords.toLocaleString()} poles flagged) — ${defectCompare}. ` +
+                        `Pole mix: ${concretePct}% concrete, ${woodPct}% wood. ` +
+                        `${parseFloat(woodPct) > 40 ? 'High proportion of wooden poles may explain elevated defects — wooden poles degrade faster.' : ''} ` +
+                        `Recommend field verification audits to confirm defect accuracy and prioritize replacement scheduling.`
+                });
+            } else if (parseFloat(defectPct) < 5) {
+                recs.push({
+                    icon: '🎯', title: 'Low Defect Rate — Verify Accuracy',
+                    text: `Only <strong>${defectPct}% defect rate</strong> (${badPoles} flagged) — ${defectCompare}. ` +
+                        `Pole mix: ${concretePct}% concrete, ${woodPct}% wood. ` +
+                        `Unusually low defect reporting may indicate under-detection. Conduct random spot-check audits on ${Math.min(20, Math.ceil(totalRecords * 0.05))} poles to validate.`
+                });
+            } else {
+                recs.push({
+                    icon: '📊', title: 'Defect & Asset Quality',
+                    text: `<strong>${defectPct}% defect rate</strong> (${badPoles.toLocaleString()} of ${totalRecords.toLocaleString()}) — ${defectCompare}. ` +
+                        `Pole mix: ${concretePct}% concrete, ${woodPct}% wood. ` +
+                        `${defectAboveAvg ? 'Slightly above project norm — monitor for trending upward and investigate concentrated areas.' : 'Within acceptable range. Maintain current inspection standards.'}`
+                });
+            }
+
+            // 5. Data Freshness & Completion
+            if (diffDays > 5) {
+                recs.push({
+                    icon: '🔄', title: 'Stale Data — Sync Required',
+                    text: `Last activity recorded on <strong>${lastDateISO}</strong> — <strong>${diffDays} days ago</strong>. ` +
+                        `${totalRecords.toLocaleString()} poles captured from ${firstDateISO} to ${lastDateISO}. ` +
+                        `${completionPct ? `Contributing ${shareOfTotal}% of total project data (${completionPct}% of BOQ target). ` : `Contributing ${shareOfTotal}% of total project data. `}` +
+                        `Enforce daily sync protocol — data older than 48 hours reduces dashboard reliability for planning.`
+                });
+            } else {
+                recs.push({
+                    icon: '✅', title: 'Project Contribution & Progress',
+                    text: `<strong>${totalRecords.toLocaleString()} poles</strong> captured (${shareOfTotal}% of project total) from ${firstDateISO} to ${lastDateISO}. ` +
+                        `${completionPct ? `This represents <strong>${completionPct}%</strong> towards the BOQ target of ${boqTotal.toLocaleString()} poles. ` : ''}` +
+                        `Data is fresh (last sync: ${diffDays === 0 ? 'today' : diffDays === 1 ? 'yesterday' : diffDays + ' days ago'}). ` +
+                        `${parseFloat(completionPct) < 50 ? 'Significant ground still to cover — maintain or increase current pace.' : parseFloat(completionPct) < 80 ? 'Good progress — entering the final stretch.' : 'Nearing completion — focus on quality verification of remaining assets.'}`
+                });
+            }
+
+            // --- RENDER ---
             if (badge) {
                 badge.textContent = status;
                 badge.className = `status-badge ${statusClass}`;
             }
 
             if (content) {
-                content.innerHTML = `
+                content.innerHTML = recs.map(r => `
                     <div class="rec-item">
-                        <h4>${rec1.icon} ${rec1.title}</h4>
-                        <p>${rec1.text}</p>
+                        <h4>${r.icon} ${r.title}</h4>
+                        <p>${r.text}</p>
                     </div>
-                    <div class="rec-item">
-                        <h4>${rec2.icon} ${rec2.title}</h4>
-                        <p>${rec2.text}</p>
-                    </div>
-                    <div class="rec-item">
-                        <h4>${rec3.icon} ${rec3.title}</h4>
-                        <p>${rec3.text}</p>
-                    </div>
-                `;
+                `).join('');
             }
         });
     }
