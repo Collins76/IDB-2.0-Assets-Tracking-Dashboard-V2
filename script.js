@@ -1501,10 +1501,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Parse and sort dates properly
         const parseDateStr = (s) => {
-            // Handle dd/mm/yyyy or mm/dd/yyyy — assume dd/mm/yyyy based on data sample
+            // Format is mm/dd/yyyy (e.g. 01/30/2026 = Jan 30)
             const parts = s.split('/');
             if (parts.length === 3) {
-                return new Date(parts[2], parts[1] - 1, parts[0]);
+                return new Date(parts[2], parts[0] - 1, parts[1]);
             }
             return new Date(s);
         };
@@ -2444,13 +2444,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const sortedVendors = Object.entries(vendorCounts).sort((a, b) => b[1] - a[1]);
         const vendorColors = { 'ETC Workforce': '#0EA5E9', 'Jesom Technology': '#f97316', 'Ikeja Electric': '#eab308' };
 
-        // --- Top & bottom officers ---
+        // --- Officers ---
         const userCounts = {};
         data.forEach(d => { if (d.User) userCounts[d.User] = (userCounts[d.User] || 0) + 1; });
-        const sortedUsers = Object.entries(userCounts).sort((a, b) => b[1] - a[1]);
-        const topUser = sortedUsers[0];
-        const bottomUser = sortedUsers[sortedUsers.length - 1];
-        const totalUsers = sortedUsers.length;
+        const totalUsers = Object.keys(userCounts).length;
 
         // --- Defects ---
         const defects = data.filter(d => d.Issue_Type && d.Issue_Type !== 'Good Condition').length;
@@ -2537,28 +2534,44 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${vendorBarsHTML}
             </div>
 
-            <!-- Top & Bottom Officers -->
-            ${topUser && bottomUser && totalUsers > 1 ? `
-            <div class="insight-item" style="flex-direction:column;align-items:stretch;">
-                <span class="insight-label" style="margin-bottom:6px;">Officer Performance Spread</span>
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <div>
-                        <div style="font-size:0.75rem;color:#10b981;font-weight:600;">BEST</div>
-                        <div style="font-weight:700;font-size:0.95rem;color:hsl(var(--foreground));">${getDisplayName(topUser[0])}</div>
-                        <div style="font-size:0.78rem;color:var(--text-secondary);">${topUser[1].toLocaleString()} poles</div>
-                    </div>
-                    <div style="text-align:center;padding:0 8px;">
-                        <div style="font-size:1.2rem;font-weight:800;color:#eab308;">${bottomUser[1] > 0 ? (topUser[1] / bottomUser[1]).toFixed(1) : '∞'}x</div>
-                        <div style="font-size:0.7rem;color:var(--text-secondary);">gap</div>
-                    </div>
-                    <div style="text-align:right;">
-                        <div style="font-size:0.75rem;color:#ef4444;font-weight:600;">LOWEST</div>
-                        <div style="font-weight:700;font-size:0.95rem;color:hsl(var(--foreground));">${getDisplayName(bottomUser[0])}</div>
-                        <div style="font-size:0.78rem;color:var(--text-secondary);">${bottomUser[1].toLocaleString()} poles</div>
-                    </div>
-                </div>
-            </div>
-            ` : ''}
+            <!-- Per-Vendor Officer Performance -->
+            ${(() => {
+                const vendorNames = ['ETC Workforce', 'Jesom Technology', 'Ikeja Electric'];
+                const vColors = { 'ETC Workforce': '#0EA5E9', 'Jesom Technology': '#f97316', 'Ikeja Electric': '#eab308' };
+                const vShort = { 'ETC Workforce': 'ETC', 'Jesom Technology': 'Jesom', 'Ikeja Electric': 'Ikeja' };
+                const rows = vendorNames.map(v => {
+                    const vUsers = {};
+                    data.filter(d => d.Vendor_Name === v).forEach(d => { if (d.User) vUsers[d.User] = (vUsers[d.User] || 0) + 1; });
+                    const sorted = Object.entries(vUsers).sort((a, b) => b[1] - a[1]);
+                    if (sorted.length === 0) return '';
+                    const best = sorted[0];
+                    const worst = sorted[sorted.length - 1];
+                    const color = vColors[v];
+                    return `<div style="margin-bottom:10px;padding:8px;background:rgba(255,255,255,0.02);border-radius:6px;border-left:3px solid ${color};">
+                        <div style="font-size:0.75rem;font-weight:700;color:${color};margin-bottom:5px;">${vShort[v]} (${sorted.length} officers)</div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                                <div style="font-size:0.65rem;color:#10b981;font-weight:600;">BEST</div>
+                                <div style="font-weight:700;font-size:0.85rem;color:hsl(var(--foreground));">${getDisplayName(best[0])}</div>
+                                <div style="font-size:0.75rem;color:var(--text-secondary);">${best[1]} poles</div>
+                            </div>
+                            <div style="text-align:center;padding:0 6px;">
+                                <div style="font-size:0.95rem;font-weight:800;color:${color};">${worst[1] > 0 ? (best[1] / worst[1]).toFixed(1) : '∞'}x</div>
+                                <div style="font-size:0.6rem;color:var(--text-secondary);">gap</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:0.65rem;color:#ef4444;font-weight:600;">LOWEST</div>
+                                <div style="font-weight:700;font-size:0.85rem;color:hsl(var(--foreground));">${getDisplayName(worst[0])}</div>
+                                <div style="font-size:0.75rem;color:var(--text-secondary);">${worst[1]} poles</div>
+                            </div>
+                        </div>
+                    </div>`;
+                }).filter(Boolean).join('');
+                return rows ? `<div class="insight-item" style="flex-direction:column;align-items:stretch;">
+                    <span class="insight-label" style="margin-bottom:6px;">Officer Performance by Vendor</span>
+                    ${rows}
+                </div>` : '';
+            })()}
 
             <!-- Asset Health -->
             <div class="insight-item" style="flex-direction:column;align-items:stretch;">
