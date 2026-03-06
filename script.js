@@ -2402,92 +2402,194 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateKeyInsights() {
         const container = document.getElementById('keyInsightsContent');
         if (!container) return;
+        const data = filteredData;
+        const total = data.length;
+        if (total === 0) { container.innerHTML = '<p style="color:var(--text-secondary);">No data to display.</p>'; return; }
 
-        // Calculate Metrics
-        // 1. Top Vendor
+        // --- Velocity ---
+        const dateStrings = data.map(d => d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : '').filter(Boolean);
+        const dates = [...new Set(dateStrings)].sort();
+        const activeDays = dates.length || 1;
+        const runRate = (total / activeDays).toFixed(1);
+
+        // Recent trend (last 3 days vs prior 3)
+        const recent3 = dates.slice(-3);
+        const prev3 = dates.slice(-6, -3);
+        const recentCount = data.filter(d => { const ds = d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : ''; return recent3.includes(ds); }).length;
+        const prevCount = data.filter(d => { const ds = d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : ''; return prev3.includes(ds); }).length;
+        const recentRate = recent3.length > 0 ? Math.round(recentCount / recent3.length) : 0;
+        const prevRate = prev3.length > 0 ? Math.round(prevCount / prev3.length) : 0;
+        const trendPct = prevRate > 0 ? Math.round(((recentRate - prevRate) / prevRate) * 100) : 0;
+        const trendIcon = trendPct > 5 ? '▲' : trendPct < -5 ? '▼' : '►';
+        const trendColor = trendPct > 5 ? '#10b981' : trendPct < -5 ? '#ef4444' : '#eab308';
+
+        // --- Vendor race ---
         const vendorCounts = {};
-        filteredData.forEach(d => {
-            const val = d["Vendor_Name"] || "Unassigned";
-            vendorCounts[val] = (vendorCounts[val] || 0) + 1;
-        });
-        const topVendor = Object.entries(vendorCounts).sort((a, b) => b[1] - a[1])[0] || ['N/A', 0];
+        data.forEach(d => { vendorCounts[d.Vendor_Name || 'Other'] = (vendorCounts[d.Vendor_Name || 'Other'] || 0) + 1; });
+        const sortedVendors = Object.entries(vendorCounts).sort((a, b) => b[1] - a[1]);
+        const vendorColors = { 'ETC Workforce': '#0EA5E9', 'Jesom Technology': '#f97316', 'Ikeja Electric': '#eab308' };
 
-        // 2. Field Officer Stats (Top & Bottom)
+        // --- Top & bottom officers ---
         const userCounts = {};
-        filteredData.forEach(d => {
-            const val = d.User || "Unknown";
-            userCounts[val] = (userCounts[val] || 0) + 1;
-        });
+        data.forEach(d => { if (d.User) userCounts[d.User] = (userCounts[d.User] || 0) + 1; });
         const sortedUsers = Object.entries(userCounts).sort((a, b) => b[1] - a[1]);
+        const topUser = sortedUsers[0];
+        const bottomUser = sortedUsers[sortedUsers.length - 1];
+        const totalUsers = sortedUsers.length;
 
-        const topUserEntry = sortedUsers[0] || ['N/A', 0];
-        const topUser = getDisplayName(topUserEntry[0]);
+        // --- Defects ---
+        const defects = data.filter(d => d.Issue_Type && d.Issue_Type !== 'Good Condition').length;
+        const defectPct = ((defects / total) * 100).toFixed(1);
+        const healthPct = (100 - parseFloat(defectPct)).toFixed(1);
 
-        const bottomUserEntry = sortedUsers[sortedUsers.length - 1] || ['N/A', 0];
-        const bottomUser = getDisplayName(bottomUserEntry[0]);
-        // Find vendor for bottom user
-        const bottomUserRecord = filteredData.find(d => d.User === bottomUserEntry[0]);
-        const bottomVendor = bottomUserRecord ? (bottomUserRecord["Vendor_Name"] || 'Unknown') : 'Unknown';
-        const bottomPct = filteredData.length > 0 ? ((bottomUserEntry[1] / filteredData.length) * 100).toFixed(1) : 0;
+        // --- Coverage ---
+        const feederCount = new Set(data.map(d => d.Feeder).filter(Boolean)).size;
+        const dtCount = new Set(data.map(d => d["DT Name"]).filter(Boolean)).size;
+        const utCount = new Set(data.map(d => d.Undertaking).filter(Boolean)).size;
 
-        // 3. Top Undertaking
-        const utCounts = {};
-        filteredData.forEach(d => {
-            const val = d.Undertaking || "Unknown";
-            utCounts[val] = (utCounts[val] || 0) + 1;
-        });
-        const sortedUt = Object.entries(utCounts).sort((a, b) => b[1] - a[1]);
-        const topUt = sortedUt[0] || ['N/A', 0];
-        const bottomUt = sortedUt[sortedUt.length - 1] || ['N/A', 0];
+        // --- BOQ completion ---
+        const boqTotal = boqData.length > 0 ? boqData.reduce((s, d) => s + (parseInt(d["POLES Grand Total"]) || 0), 0) : 0;
+        const completionPct = boqTotal > 0 ? Math.min(((total / boqTotal) * 100), 100).toFixed(1) : null;
 
-        // 4. Data Coverage (Date)
-        const dates = filteredData.map(d => new Date(d["Date/timestamp"])).filter(d => !isNaN(d));
-        let dateRange = "N/A";
-        if (dates.length > 0) {
-            const minDate = new Date(Math.min(...dates)).toLocaleDateString();
-            const maxDate = new Date(Math.max(...dates)).toLocaleDateString();
-            dateRange = `${minDate} - ${maxDate}`;
-        }
+        // --- Pole types ---
+        const poleTypes = {};
+        data.forEach(d => { const t = (d["Type of Pole"] || 'Unknown').toUpperCase(); poleTypes[t] = (poleTypes[t] || 0) + 1; });
+        const sortedPoles = Object.entries(poleTypes).sort((a, b) => b[1] - a[1]);
 
+        // --- Date range ---
+        const firstDate = dates[0] || 'N/A';
+        const lastDate = dates[dates.length - 1] || 'N/A';
 
+        // Mini bar helper
+        const miniBar = (pct, color) => `<div style="height:4px;background:rgba(255,255,255,0.08);border-radius:2px;margin-top:4px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${color};border-radius:2px;transition:width 0.5s;"></div></div>`;
 
-        // Check if a specific user is selected
-        const selectedUser = document.getElementById('userFilter').value;
-        const showOfficerStats = selectedUser === 'All';
-
-        let officerStatsHTML = '';
-        if (showOfficerStats) {
-            officerStatsHTML = `
-            <div class="insight-item">
-                <span class="insight-label">Top Field Officer</span>
-                <span class="insight-value">${topUser}</span>
-            </div>
-            <div class="insight-item">
-                <span class="insight-label">Bottom Field Officer</span>
-                <div style="text-align: right;">
-                    <div class="insight-value bottom-perf">${bottomUser}</div>
-                    <div style="font-size: 0.8rem; color: var(--text-secondary);">${bottomVendor} (${bottomPct}%)</div>
+        // Vendor race bars
+        const vendorBarsHTML = sortedVendors.map(([name, count]) => {
+            const pct = ((count / total) * 100).toFixed(0);
+            const color = vendorColors[name] || '#a0a0a0';
+            return `<div style="margin-bottom:6px;">
+                <div style="display:flex;justify-content:space-between;font-size:0.8rem;">
+                    <span style="color:${color};font-weight:600;">${name}</span>
+                    <span style="color:var(--text-secondary);">${count.toLocaleString()} (${pct}%)</span>
                 </div>
+                ${miniBar(pct, color)}
             </div>`;
-        }
+        }).join('');
+
+        // Pole type bars
+        const poleTypeBarsHTML = sortedPoles.slice(0, 3).map(([type, count]) => {
+            const pct = ((count / total) * 100).toFixed(0);
+            const color = type.includes('CONCRETE') ? '#10b981' : type.includes('WOOD') ? '#ef4444' : '#6b7280';
+            return `<div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:3px;">
+                <span style="color:${color};">${type}</span>
+                <span style="color:var(--text-secondary);">${pct}%</span>
+            </div>`;
+        }).join('');
 
         container.innerHTML = `
-            <div class="insight-item">
-                <span class="insight-label">Running Vendor</span>
-                <span class="insight-value highlight">${topVendor[0]} <span style="font-size:0.8em; color:var(--text-secondary);">(${((topVendor[1] / filteredData.length) * 100).toFixed(0)}%)</span></span>
+            <!-- Velocity & Trend -->
+            <div class="insight-item" style="flex-direction:column;align-items:stretch;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span class="insight-label">Project Velocity</span>
+                    <span style="font-size:0.8rem;color:${trendColor};font-weight:600;">${trendIcon} ${trendPct > 0 ? '+' : ''}${trendPct}% vs prior</span>
+                </div>
+                <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px;">
+                    <span style="font-size:1.6rem;font-weight:800;color:hsl(var(--foreground));">${runRate}</span>
+                    <span style="font-size:0.85rem;color:var(--text-secondary);">poles/day avg</span>
+                </div>
+                <div style="display:flex;gap:12px;font-size:0.78rem;color:var(--text-secondary);margin-top:2px;">
+                    <span>${total.toLocaleString()} poles</span>
+                    <span>${activeDays} active days</span>
+                    <span>${totalUsers} officers</span>
+                </div>
             </div>
-            ${officerStatsHTML}
-            <div class="insight-item">
-                <span class="insight-label">Highest Undertaking</span>
-                <span class="insight-value">${topUt[0]}</span>
+
+            ${completionPct !== null ? `
+            <!-- BOQ Completion -->
+            <div class="insight-item" style="flex-direction:column;align-items:stretch;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span class="insight-label">BOQ Completion</span>
+                    <span style="font-size:1.1rem;font-weight:700;color:${parseFloat(completionPct) >= 50 ? '#10b981' : '#eab308'};">${completionPct}%</span>
+                </div>
+                ${miniBar(completionPct, parseFloat(completionPct) >= 50 ? '#10b981' : '#eab308')}
+                <div style="font-size:0.78rem;color:var(--text-secondary);margin-top:4px;">${total.toLocaleString()} of ${boqTotal.toLocaleString()} target poles</div>
             </div>
-            <div class="insight-item">
-                <span class="insight-label">Lowest Undertaking</span>
-                <span class="insight-value">${bottomUt[0]}</span>
+            ` : ''}
+
+            <!-- Vendor Race -->
+            <div class="insight-item" style="flex-direction:column;align-items:stretch;">
+                <span class="insight-label" style="margin-bottom:8px;">Vendor Leaderboard</span>
+                ${vendorBarsHTML}
             </div>
+
+            <!-- Top & Bottom Officers -->
+            ${topUser && bottomUser && totalUsers > 1 ? `
+            <div class="insight-item" style="flex-direction:column;align-items:stretch;">
+                <span class="insight-label" style="margin-bottom:6px;">Officer Performance Spread</span>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div style="font-size:0.75rem;color:#10b981;font-weight:600;">BEST</div>
+                        <div style="font-weight:700;font-size:0.95rem;color:hsl(var(--foreground));">${getDisplayName(topUser[0])}</div>
+                        <div style="font-size:0.78rem;color:var(--text-secondary);">${topUser[1].toLocaleString()} poles</div>
+                    </div>
+                    <div style="text-align:center;padding:0 8px;">
+                        <div style="font-size:1.2rem;font-weight:800;color:#eab308;">${bottomUser[1] > 0 ? (topUser[1] / bottomUser[1]).toFixed(1) : '∞'}x</div>
+                        <div style="font-size:0.7rem;color:var(--text-secondary);">gap</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:0.75rem;color:#ef4444;font-weight:600;">LOWEST</div>
+                        <div style="font-weight:700;font-size:0.95rem;color:hsl(var(--foreground));">${getDisplayName(bottomUser[0])}</div>
+                        <div style="font-size:0.78rem;color:var(--text-secondary);">${bottomUser[1].toLocaleString()} poles</div>
+                    </div>
+                </div>
+            </div>
+            ` : ''}
+
+            <!-- Asset Health -->
+            <div class="insight-item" style="flex-direction:column;align-items:stretch;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span class="insight-label">Asset Health</span>
+                    <span style="font-size:0.85rem;font-weight:600;color:${parseFloat(defectPct) > 25 ? '#ef4444' : '#10b981'};">${healthPct}% Good</span>
+                </div>
+                <div style="display:flex;height:6px;border-radius:3px;overflow:hidden;margin-top:6px;">
+                    <div style="width:${healthPct}%;background:#10b981;"></div>
+                    <div style="width:${defectPct}%;background:#ef4444;"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-top:3px;">
+                    <span style="color:#10b981;">${(total - defects).toLocaleString()} good</span>
+                    <span style="color:#ef4444;">${defects.toLocaleString()} defects (${defectPct}%)</span>
+                </div>
+            </div>
+
+            <!-- Network Coverage -->
+            <div class="insight-item" style="flex-direction:column;align-items:stretch;">
+                <span class="insight-label" style="margin-bottom:6px;">Network Coverage</span>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;">
+                    <div style="background:rgba(255,255,255,0.03);border-radius:6px;padding:8px 4px;">
+                        <div style="font-size:1.2rem;font-weight:800;color:hsl(var(--foreground));">${feederCount}</div>
+                        <div style="font-size:0.7rem;color:var(--text-secondary);">Feeders</div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.03);border-radius:6px;padding:8px 4px;">
+                        <div style="font-size:1.2rem;font-weight:800;color:hsl(var(--foreground));">${dtCount}</div>
+                        <div style="font-size:0.7rem;color:var(--text-secondary);">DTs</div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.03);border-radius:6px;padding:8px 4px;">
+                        <div style="font-size:1.2rem;font-weight:800;color:hsl(var(--foreground));">${utCount}</div>
+                        <div style="font-size:0.7rem;color:var(--text-secondary);">Undertakings</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pole Material Mix -->
+            <div class="insight-item" style="flex-direction:column;align-items:stretch;">
+                <span class="insight-label" style="margin-bottom:6px;">Pole Material Mix</span>
+                ${poleTypeBarsHTML}
+            </div>
+
+            <!-- Data Window -->
             <div class="insight-item">
-                <span class="insight-label">Data Coverage</span>
-                <span class="insight-value" style="font-size: 0.9rem;">${dateRange}</span>
+                <span class="insight-label">Data Window</span>
+                <span style="font-size:0.85rem;color:var(--text-secondary);text-align:right;">${firstDate}<br>${lastDate}</span>
             </div>
         `;
     }
