@@ -8,6 +8,229 @@ document.addEventListener('DOMContentLoaded', () => {
     let map = null;
     let markersLayer = null;
 
+    // ── Multi-Select Dropdown Component ──
+    const multiSelects = {};
+
+    class MultiSelect {
+        constructor(selectEl, opts = {}) {
+            this.selectEl = selectEl;
+            this.id = selectEl.id;
+            this.allValue = opts.allValue ?? 'All';
+            this.allLabel = selectEl.options[0]?.textContent || 'All';
+            this.selectedValues = new Set();
+            this.onChange = opts.onChange || (() => {});
+            this._build();
+        }
+
+        _build() {
+            this.selectEl.style.display = 'none';
+
+            this.wrapper = document.createElement('div');
+            this.wrapper.className = 'multi-select-wrapper';
+            this.selectEl.parentNode.insertBefore(this.wrapper, this.selectEl.nextSibling);
+
+            this.trigger = document.createElement('div');
+            this.trigger.className = 'multi-select-trigger';
+            this.trigger.textContent = this.allLabel;
+            this.wrapper.appendChild(this.trigger);
+
+            // Append dropdown to body so it escapes overflow:auto parents
+            this.dropdown = document.createElement('div');
+            this.dropdown.className = 'multi-select-dropdown';
+            document.body.appendChild(this.dropdown);
+
+            this.trigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._toggle();
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!this.wrapper.contains(e.target) && !this.dropdown.contains(e.target)) this._close();
+            });
+
+            window.addEventListener('scroll', () => { if (this._isOpen) this._positionDropdown(); }, true);
+            window.addEventListener('resize', () => { if (this._isOpen) this._positionDropdown(); });
+
+            this._isOpen = false;
+            this.refresh();
+        }
+
+        refresh() {
+            this.dropdown.innerHTML = '';
+            const options = [...this.selectEl.options].slice(1); // skip "All" option
+
+            // Search box (show for 8+ items)
+            if (options.length >= 8) {
+                this.searchInput = document.createElement('input');
+                this.searchInput.className = 'multi-select-search';
+                this.searchInput.placeholder = 'Search...';
+                this.searchInput.addEventListener('input', () => this._filterOptions());
+                this.searchInput.addEventListener('click', (e) => e.stopPropagation());
+                this.dropdown.appendChild(this.searchInput);
+            } else {
+                this.searchInput = null;
+            }
+
+            // Select All / Clear buttons
+            const actions = document.createElement('div');
+            actions.className = 'multi-select-actions';
+            const btnAll = document.createElement('button');
+            btnAll.textContent = 'Select All';
+            btnAll.addEventListener('click', (e) => { e.stopPropagation(); this._selectAll(); });
+            const btnClear = document.createElement('button');
+            btnClear.textContent = 'Clear';
+            btnClear.addEventListener('click', (e) => { e.stopPropagation(); this._clearAll(); });
+            actions.appendChild(btnAll);
+            actions.appendChild(btnClear);
+            this.dropdown.appendChild(actions);
+
+            this.optionContainer = document.createElement('div');
+            this.dropdown.appendChild(this.optionContainer);
+
+            // Remove stale values no longer in options
+            const availableValues = new Set(options.map(o => o.value));
+            this.selectedValues = new Set([...this.selectedValues].filter(v => availableValues.has(v)));
+
+            options.forEach(opt => {
+                const label = document.createElement('label');
+                label.className = 'multi-select-option';
+                label.dataset.value = opt.value;
+                label.dataset.text = opt.textContent.toLowerCase();
+
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.value = opt.value;
+                cb.checked = this.selectedValues.has(opt.value);
+
+                const span = document.createElement('span');
+                span.textContent = opt.textContent;
+
+                label.appendChild(cb);
+                label.appendChild(span);
+                this.optionContainer.appendChild(label);
+
+                cb.addEventListener('change', () => {
+                    if (cb.checked) this.selectedValues.add(opt.value);
+                    else this.selectedValues.delete(opt.value);
+                    this._updateDisplay();
+                    this.onChange();
+                });
+            });
+
+            this._updateDisplay();
+        }
+
+        _filterOptions() {
+            const query = (this.searchInput?.value || '').toLowerCase();
+            this.optionContainer.querySelectorAll('.multi-select-option').forEach(el => {
+                el.classList.toggle('hidden', query && !el.dataset.text.includes(query));
+            });
+        }
+
+        _selectAll() {
+            this.optionContainer.querySelectorAll('.multi-select-option:not(.hidden) input').forEach(cb => {
+                cb.checked = true;
+                this.selectedValues.add(cb.value);
+            });
+            this._updateDisplay();
+            this.onChange();
+        }
+
+        _clearAll() {
+            this.selectedValues.clear();
+            this.optionContainer.querySelectorAll('input').forEach(cb => cb.checked = false);
+            this._updateDisplay();
+            this.onChange();
+        }
+
+        _updateDisplay() {
+            if (this.selectedValues.size === 0) {
+                this.trigger.textContent = this.allLabel;
+                this.trigger.classList.remove('has-selection');
+            } else if (this.selectedValues.size === 1) {
+                const val = [...this.selectedValues][0];
+                const opt = [...this.selectEl.options].find(o => o.value === val);
+                this.trigger.textContent = opt ? opt.textContent : val;
+                this.trigger.classList.add('has-selection');
+            } else {
+                this.trigger.textContent = `${this.selectedValues.size} selected`;
+                this.trigger.classList.add('has-selection');
+            }
+        }
+
+        _positionDropdown() {
+            const rect = this.trigger.getBoundingClientRect();
+            this.dropdown.style.top = (rect.bottom + 2) + 'px';
+            this.dropdown.style.left = rect.left + 'px';
+            this.dropdown.style.minWidth = Math.max(rect.width, 180) + 'px';
+        }
+
+        _toggle() {
+            // Close all other open dropdowns
+            for (const ms of Object.values(multiSelects)) {
+                if (ms !== this && ms._isOpen) ms._close();
+            }
+            if (this._isOpen) {
+                this._close();
+            } else {
+                this._isOpen = true;
+                this._positionDropdown();
+                this.dropdown.style.display = 'block';
+                this.wrapper.classList.add('open');
+                if (this.searchInput) {
+                    this.searchInput.value = '';
+                    this._filterOptions();
+                    this.searchInput.focus();
+                }
+            }
+        }
+
+        _close() {
+            this._isOpen = false;
+            this.dropdown.style.display = 'none';
+            this.wrapper.classList.remove('open');
+        }
+
+        /** Returns array of selected values, or null if "All" (nothing selected) */
+        getValues() {
+            return this.selectedValues.size === 0 ? null : [...this.selectedValues];
+        }
+
+        isAll() { return this.selectedValues.size === 0; }
+
+        reset() {
+            this.selectedValues.clear();
+            this.refresh();
+        }
+    }
+
+    function initMultiSelects() {
+        const filterConfigs = {
+            vendorFilter:   { onChange: handleVendorChange },
+            buFilter:       { onChange: applyFilters },
+            utFilter:       { onChange: applyFilters },
+            userFilter:     { onChange: applyFilters },
+            feederFilter:   { onChange: () => { updateDTOptions(); applyFilters(); } },
+            dtFilter:       { onChange: () => { updateUpriserOptions(); applyFilters(); } },
+            upriserFilter:  { onChange: applyFilters },
+            materialFilter: { allValue: '', onChange: applyFilters },
+            dateFilter:     { onChange: applyFilters },
+        };
+
+        for (const [id, cfg] of Object.entries(filterConfigs)) {
+            const el = document.getElementById(id);
+            if (el) {
+                multiSelects[id] = new MultiSelect(el, cfg);
+            }
+        }
+    }
+
+    function refreshAllMultiSelects() {
+        for (const ms of Object.values(multiSelects)) {
+            ms.refresh();
+        }
+    }
+
     // Helper to infer vendor from user
     function inferVendor(user) {
         // Based on provided documents
@@ -292,22 +515,8 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Failed to load dashboard data automatically. Please check network connection.');
     });
 
-    // Event Listeners for Filters
-    document.getElementById('vendorFilter').addEventListener('change', handleVendorChange);
-    document.getElementById('buFilter').addEventListener('change', applyFilters);
-    document.getElementById('utFilter').addEventListener('change', applyFilters);
-    document.getElementById('userFilter').addEventListener('change', applyFilters);
-    document.getElementById('dtFilter').addEventListener('change', () => {
-        updateUpriserOptions();
-        applyFilters();
-    });
-    document.getElementById('upriserFilter').addEventListener('change', applyFilters);
-    document.getElementById('feederFilter').addEventListener('change', () => {
-        updateDTOptions();
-        applyFilters();
-    });
-    document.getElementById('materialFilter').addEventListener('change', applyFilters);
-    document.getElementById('dateFilter').addEventListener('change', applyFilters);
+    // Initialize multi-select filter dropdowns
+    initMultiSelects();
 
 
     document.getElementById('viewModeToggle').addEventListener('change', handleViewModeToggle);
@@ -1008,7 +1217,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const healthColor = parseFloat(defectPct) > 25 ? '#ef4444' : parseFloat(defectPct) > 15 ? '#eab308' : '#10b981';
 
         // BOQ
-        const boqTotal = boqData.length > 0 ? boqData.reduce((s, d) => s + (parseInt(d["POLES Grand Total"]) || 0), 0) : 0;
+        let activeBoqData = boqData;
+        const feederVals = multiSelects.feederFilter?.getValues();
+        if (feederVals && feederVals.length > 0) {
+            activeBoqData = activeBoqData.filter(d => feederVals.includes(d["FEEDER NAME"]));
+        }
+
+        const dtVals = multiSelects.dtFilter?.getValues();
+        if (dtVals && dtVals.length > 0) {
+            activeBoqData = activeBoqData.filter(d => dtVals.includes(d["DT NAME"]));
+        }
+
+        const boqTotal = activeBoqData.length > 0 ? activeBoqData.reduce((s, d) => s + (parseInt(d["POLES Grand Total"]) || 0), 0) : 0;
         const completionPct = boqTotal > 0 ? Math.min(((total / boqTotal) * 100), 100).toFixed(1) : null;
 
         // Pole types
@@ -1120,6 +1340,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Populate other filters based on global data initially
         populateDependentFilters(globalData);
+
+        // Refresh all multi-select widgets after populating options
+        refreshAllMultiSelects();
     }
 
     function populateDependentFilters(data) {
@@ -1172,8 +1395,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const uts = [...new Set(data.map(item => item["Undertaking"]))].filter(Boolean).sort();
 
         const userSet = new Set(data.map(item => item["User"]));
-        const currentVendor = document.getElementById('vendorFilter').value;
-        if (currentVendor === 'All' || currentVendor === 'Ikeja Electric') {
+        const vendorVals = multiSelects.vendorFilter?.getValues();
+        if (!vendorVals || vendorVals.includes('Ikeja Electric')) {
             // Add Ikeja Electric system usernames to the user filter
             [
                 'kadebayo', 'ttope', 'rakinloye', 'vifeanyi', 'osunday', 'wadegoke', 'omoses',
@@ -1247,41 +1470,48 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleVendorChange() {
-        const vendorVal = document.getElementById('vendorFilter').value;
+        const vendorVals = multiSelects.vendorFilter.getValues();
         let relevantData = globalData;
-        if (vendorVal !== 'All') {
-            relevantData = globalData.filter(item => item["Vendor_Name"] === vendorVal);
+        if (vendorVals) {
+            relevantData = globalData.filter(item => vendorVals.includes(item["Vendor_Name"]));
         }
 
-        // Update all other filters based on this vendor data
+        // Reset dependent filters and update their options
+        ['buFilter', 'utFilter', 'userFilter', 'feederFilter', 'dtFilter', 'upriserFilter', 'materialFilter', 'dateFilter'].forEach(id => {
+            if (multiSelects[id]) multiSelects[id].selectedValues.clear();
+        });
+
         populateDependentFilters(relevantData);
 
-        // Apply filters (which will now use the new options, and 'All' for reset ones)
+        // Refresh dependent multi-selects
+        ['buFilter', 'utFilter', 'userFilter', 'feederFilter', 'dtFilter', 'upriserFilter', 'materialFilter', 'dateFilter'].forEach(id => {
+            if (multiSelects[id]) multiSelects[id].refresh();
+        });
+
         applyFilters();
     }
 
     function updateDTOptions() {
-        const feederVal = document.getElementById('feederFilter').value;
+        const feederVals = multiSelects.feederFilter.getValues();
         const dtSelect = document.getElementById('dtFilter');
-        const currentDT = dtSelect.value;
 
         // Respect Vendor Context
-        const vendorVal = document.getElementById('vendorFilter').value;
+        const vendorVals = multiSelects.vendorFilter.getValues();
         let contextData = globalData;
-        if (vendorVal !== 'All') {
-            contextData = globalData.filter(item => item["Vendor_Name"] === vendorVal);
+        if (vendorVals) {
+            contextData = globalData.filter(item => vendorVals.includes(item["Vendor_Name"]));
         }
 
         // Get relevant data based on Feeder selection within Vendor Context
         let relevantData = contextData;
-        if (feederVal !== 'All') {
-            relevantData = contextData.filter(item => item["Feeder"] === feederVal);
+        if (feederVals) {
+            relevantData = contextData.filter(item => feederVals.includes(item["Feeder"]));
         }
 
         // Get unique DTs
         const dts = [...new Set(relevantData.map(item => item["DT Name"]))].filter(Boolean).sort();
 
-        // Clear and populate
+        // Clear and populate the underlying select
         dtSelect.innerHTML = '<option value="All">All DTs</option>';
         dts.forEach(dt => {
             const opt = document.createElement('option');
@@ -1290,11 +1520,13 @@ document.addEventListener('DOMContentLoaded', () => {
             dtSelect.appendChild(opt);
         });
 
-        // Restore selection if valid
-        if (dts.includes(currentDT)) {
-            dtSelect.value = currentDT;
-        } else {
-            dtSelect.value = 'All';
+        // Remove stale DT selections and refresh widget
+        if (multiSelects.dtFilter) {
+            const dtSet = new Set(dts);
+            multiSelects.dtFilter.selectedValues = new Set(
+                [...multiSelects.dtFilter.selectedValues].filter(v => dtSet.has(v))
+            );
+            multiSelects.dtFilter.refresh();
         }
 
         // Trigger Upriser update
@@ -1302,25 +1534,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateUpriserOptions() {
-        const dtVal = document.getElementById('dtFilter').value;
+        const dtVals = multiSelects.dtFilter.getValues();
+        const feederVals = multiSelects.feederFilter.getValues();
         const upriserSelect = document.getElementById('upriserFilter');
-        const currentUpriser = upriserSelect.value;
-        const feederVal = document.getElementById('feederFilter').value;
 
         // Respect Vendor Context
-        const vendorVal = document.getElementById('vendorFilter').value;
+        const vendorVals = multiSelects.vendorFilter.getValues();
         let contextData = globalData;
-        if (vendorVal !== 'All') {
-            contextData = globalData.filter(item => item["Vendor_Name"] === vendorVal);
+        if (vendorVals) {
+            contextData = globalData.filter(item => vendorVals.includes(item["Vendor_Name"]));
         }
 
         // Get relevant data based on DT (and implicitly Feeder)
         let relevantData = contextData;
-
-        if (dtVal !== 'All') {
-            relevantData = contextData.filter(item => item["DT Name"] === dtVal);
-        } else if (feederVal !== 'All') {
-            relevantData = contextData.filter(item => item["Feeder"] === feederVal);
+        if (dtVals) {
+            relevantData = contextData.filter(item => dtVals.includes(item["DT Name"]));
+        } else if (feederVals) {
+            relevantData = contextData.filter(item => feederVals.includes(item["Feeder"]));
         }
 
         // Get unique Uprisers
@@ -1335,38 +1565,39 @@ document.addEventListener('DOMContentLoaded', () => {
             upriserSelect.appendChild(opt);
         });
 
-        if (uprisers.some(u => String(u) === currentUpriser)) {
-            upriserSelect.value = currentUpriser;
-        } else {
-            upriserSelect.value = 'All';
+        // Remove stale selections and refresh widget
+        if (multiSelects.upriserFilter) {
+            const upSet = new Set(uprisers.map(String));
+            multiSelects.upriserFilter.selectedValues = new Set(
+                [...multiSelects.upriserFilter.selectedValues].filter(v => upSet.has(v))
+            );
+            multiSelects.upriserFilter.refresh();
         }
     }
 
     function applyFilters() {
-        const vendorVal = document.getElementById('vendorFilter').value;
-        const buVal = document.getElementById('buFilter').value;
-        const utVal = document.getElementById('utFilter').value;
-        const userVal = document.getElementById('userFilter').value;
-        const dtVal = document.getElementById('dtFilter').value;
-        const upriserVal = document.getElementById('upriserFilter').value;
-        const feederVal = document.getElementById('feederFilter').value;
-        const matVal = document.getElementById('materialFilter').value;
-        const dateVal = document.getElementById('dateFilter').value;
+        const vendorVals = multiSelects.vendorFilter?.getValues();
+        const buVals = multiSelects.buFilter?.getValues();
+        const utVals = multiSelects.utFilter?.getValues();
+        const userVals = multiSelects.userFilter?.getValues();
+        const dtVals = multiSelects.dtFilter?.getValues();
+        const upriserVals = multiSelects.upriserFilter?.getValues();
+        const feederVals = multiSelects.feederFilter?.getValues();
+        const matVals = multiSelects.materialFilter?.getValues();
+        const dateVals = multiSelects.dateFilter?.getValues();
 
         filteredData = globalData.filter(item => {
-            // Material check — matVal is now uppercase from dynamic options (e.g. "CONCRETE")
             const poleType = (item["Type of Pole"] || '').trim().toUpperCase();
-            const matMatch = (matVal === "" || poleType === matVal);
 
-            return (vendorVal === 'All' || item["Vendor_Name"] === vendorVal) &&
-                (buVal === 'All' || item["Bussines Unit"] === buVal) &&
-                (utVal === 'All' || item["Undertaking"] === utVal) &&
-                (userVal === 'All' || item["User"] === userVal) &&
-                (dtVal === 'All' || item["DT Name"] === dtVal) &&
-                (upriserVal === 'All' || String(item["UpriserNo"]) == upriserVal) &&
-                (feederVal === 'All' || item["Feeder"] === feederVal) &&
-                (dateVal === 'All' || (item["Date/timestamp"] && item["Date/timestamp"].startsWith(dateVal))) &&
-                matMatch;
+            return (!vendorVals || vendorVals.includes(item["Vendor_Name"])) &&
+                (!buVals || buVals.includes(item["Bussines Unit"])) &&
+                (!utVals || utVals.includes(item["Undertaking"])) &&
+                (!userVals || userVals.includes(item["User"])) &&
+                (!dtVals || dtVals.includes(item["DT Name"])) &&
+                (!upriserVals || upriserVals.includes(String(item["UpriserNo"]))) &&
+                (!feederVals || feederVals.includes(item["Feeder"])) &&
+                (!matVals || matVals.includes(poleType)) &&
+                (!dateVals || (item["Date/timestamp"] && dateVals.some(d => item["Date/timestamp"].startsWith(d))));
         });
 
         updateDashboard();
@@ -1411,6 +1642,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // Helper to formatting numbers
         const fmt = n => n ? n.toLocaleString() : '0';
 
+        // Filter BOQ Data based on active Feeder and DT Name
+        let activeBoqData = boqData;
+        const feederVals = multiSelects.feederFilter?.getValues();
+        if (feederVals && feederVals.length > 0) {
+            activeBoqData = activeBoqData.filter(d => feederVals.includes(d["FEEDER NAME"]));
+        }
+
+        const dtVals = multiSelects.dtFilter?.getValues();
+        if (dtVals && dtVals.length > 0) {
+            activeBoqData = activeBoqData.filter(d => dtVals.includes(d["DT NAME"]));
+        }
+
         // Update Top Cards
         const topActiveEl = document.getElementById('topCardActiveUsers');
         if (topActiveEl) {
@@ -1423,7 +1666,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (topCompRateEl && topCompBarEl) {
             let completionRate = 0;
             const actRecords = filteredData.length;
-            const totalBoq = boqData.reduce((sum, d) => sum + (parseInt(d["POLES Grand Total"]) || 0), 0);
+            const totalBoq = activeBoqData.reduce((sum, d) => sum + (parseInt(d["POLES Grand Total"]) || 0), 0);
             if (totalBoq > 0) {
                 completionRate = (actRecords / totalBoq) * 100;
             }
@@ -1435,32 +1678,22 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1. Calculate Metrics
 
         // --- A. Records (Poles) ---
-        const boqRecords = (viewMode === 'boq' && boqData.length)
-            ? boqData.reduce((sum, d) => sum + (parseInt(d["POLES Grand Total"]) || 0), 0)
-            : 0;
+        const boqRecords = activeBoqData.reduce((sum, d) => sum + (parseInt(d["POLES Grand Total"]) || 0), 0);
         const actRecords = filteredData.length;
         updateModernCard('records', boqRecords, actRecords);
 
         // --- B. Good Poles (Concrete/Good) ---
-        const boqGood = (viewMode === 'boq' && boqData.length)
-            ? boqData.reduce((sum, d) => sum + (parseInt(d["GOOD"]) || 0), 0)
-            : 0;
+        const boqGood = activeBoqData.reduce((sum, d) => sum + (parseInt(d["GOOD"]) || 0), 0);
         const actGood = filteredData.filter(d => (d.Issue_Type === 'Good Condition')).length;
         updateModernCard('concrete', boqGood, actGood);
 
         // --- C. Bad Poles (Wooden/Replace) ---
-        const boqBad = (viewMode === 'boq' && boqData.length)
-            ? boqData.reduce((sum, d) => sum + (parseInt(d["BAD"]) || 0), 0)
-            : 0;
+        const boqBad = activeBoqData.reduce((sum, d) => sum + (parseInt(d["BAD"]) || 0), 0);
         const actBad = filteredData.filter(d => (d.Issue_Type !== 'Good Condition')).length;
         updateModernCard('wooden', boqBad, actBad);
 
         // --- D. New Poles (Install) ---
-        const boqNew = (viewMode === 'boq' && boqData.length)
-            ? boqData.reduce((sum, d) => sum + (parseInt(d["NEW POLE"]) || 0), 0)
-            : 0;
-        // Logic for Actual New Poles: Check Pole_Type or Issue_Type for 'New'
-        // If not found, default to 0 to avoid misleading data
+        const boqNew = activeBoqData.reduce((sum, d) => sum + (parseInt(d["NEW POLE"]) || 0), 0);
         const actNew = filteredData.filter(d =>
             (d.Pole_Type && d.Pole_Type.toLowerCase().includes('new')) ||
             (d.Issue_Type && d.Issue_Type.toLowerCase().includes('new'))
@@ -1468,12 +1701,12 @@ document.addEventListener('DOMContentLoaded', () => {
         updateModernCard('users', boqNew, actNew);
 
         // --- E. Feeders ---
-        const boqFeeders = (viewMode === 'boq' && boqData.length) ? new Set(boqData.map(d => d["FEEDER NAME"])).size : 0;
+        const boqFeeders = new Set(activeBoqData.map(d => d["FEEDER NAME"])).size;
         const actFeeders = new Set(filteredData.map(d => d.Feeder)).size;
         updateModernCard('feeders', boqFeeders, actFeeders);
 
         // --- F. DTs ---
-        const boqDTs = (viewMode === 'boq' && boqData.length) ? new Set(boqData.map(d => d["DT NAME"])).size : 0;
+        const boqDTs = new Set(activeBoqData.map(d => d["DT NAME"])).size;
         const actDTs = new Set(filteredData.map(d => d["DT Name"] || d["DT_Name"])).size;
         updateModernCard('dts', boqDTs, actDTs);
 
@@ -1494,12 +1727,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!elAct) return;
 
         // Set Values
-        if (elBoq) elBoq.textContent = (viewMode === 'boq' && boqData.length) ? boqVal.toLocaleString() : '-';
+        if (elBoq) elBoq.textContent = (boqVal > 0 || boqData.length > 0) ? boqVal.toLocaleString() : '-';
         elAct.textContent = actVal.toLocaleString();
 
         // Calculate Progress
         let pct = 0;
-        if (viewMode === 'boq' && boqVal > 0) {
+        if (boqVal > 0) {
             pct = (actVal / boqVal) * 100;
         }
 
@@ -1511,7 +1744,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Remaining
         if (elRem) {
-            if (viewMode === 'boq' && boqVal > 0) {
+            if (boqVal > 0 || boqData.length > 0) {
                 const rem = boqVal - actVal;
                 elRem.textContent = `Remaining: ${Math.max(0, rem).toLocaleString()}`;
             } else {
@@ -2111,6 +2344,7 @@ document.addEventListener('DOMContentLoaded', () => {
         filterIds.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = 'All';
+            if (multiSelects[id]) multiSelects[id].reset();
         });
 
         // 5. Update Dashboard (This will rebuild filteredData from globalData based on the 'All' selections)
@@ -2183,8 +2417,8 @@ document.addEventListener('DOMContentLoaded', () => {
         //   - IF "All" filters are selected (or at least Vendor is All), add it as "Not Started".
         //   - IF filters are active (e.g. Vendor=ETC), do NOT add it (because we don't know if it belongs to ETC).
 
-        const vendorFilter = document.getElementById('vendorFilter')?.value || 'All';
-        const isFiltered = vendorFilter !== 'All'; // Simplified check. Just checking Vendor.
+        const selFeederVals = multiSelects.feederFilter?.getValues();
+        const selDTVals = multiSelects.dtFilter?.getValues();
 
         boqData.forEach(d => {
             const dtName = (d["DT NAME"] || "Unknown DT").trim();
@@ -2192,11 +2426,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const key = `${feeder}|${dtName}`.toUpperCase();
 
             // Check filters (Feeder/DT)
-            const selFeeder = document.getElementById('feederFilter')?.value;
-            const selDT = document.getElementById('dtFilter')?.value;
-
-            if (selFeeder && selFeeder !== 'All' && feeder !== selFeeder) return;
-            if (selDT && selDT !== 'All' && dtName !== selDT) return;
+            if (selFeederVals && !selFeederVals.includes(feeder)) return;
+            if (selDTVals && !selDTVals.includes(dtName)) return;
 
 
             if (map[key]) {
@@ -2213,13 +2444,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Major filters: Vendor, BU, Undertaking, User, Material.
 
                 // Active Filters Check
-                const fVendor = document.getElementById('vendorFilter').value;
-                const fBU = document.getElementById('buFilter').value;
-                const fUT = document.getElementById('utFilter').value;
-                const fUser = document.getElementById('userFilter').value;
-                const fMat = document.getElementById('materialFilter')?.value || '';
-
-                const hasFieldFilter = fVendor !== 'All' || fBU !== 'All' || fUT !== 'All' || fUser !== 'All' || fMat !== '';
+                const hasFieldFilter = !multiSelects.vendorFilter?.isAll() ||
+                    !multiSelects.buFilter?.isAll() ||
+                    !multiSelects.utFilter?.isAll() ||
+                    !multiSelects.userFilter?.isAll() ||
+                    !multiSelects.materialFilter?.isAll();
 
                 if (!hasFieldFilter) {
                     map[key] = {
@@ -2784,12 +3013,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2. Iterate BOQ and Merge
         // Apply Filters to BOQ Data as well (Feeder and DT only)
-        const selectedFeeder = document.getElementById('feederFilter').value;
-        const selectedDT = document.getElementById('dtFilter').value;
+        const feederVals = multiSelects.feederFilter?.getValues();
+        const dtVals = multiSelects.dtFilter?.getValues();
 
         const filteredBOQ = boqData.filter(boq => {
-            if (selectedFeeder && selectedFeeder !== 'All' && boq["FEEDER NAME"] !== selectedFeeder) return false;
-            if (selectedDT && selectedDT !== 'All' && boq["DT NAME"] !== selectedDT) return false;
+            if (feederVals && !feederVals.includes(boq["FEEDER NAME"])) return false;
+            if (dtVals && !dtVals.includes(boq["DT NAME"])) return false;
             return true;
         });
 
@@ -3397,5 +3626,342 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Init Logic
     initColumnFilter();
+
+    // PDF Download Logic — Pure jsPDF (no html2canvas)
+    const downloadPdfBtn = document.getElementById('downloadPDF');
+    if (downloadPdfBtn) {
+        downloadPdfBtn.addEventListener('click', () => {
+            if (!filteredData || filteredData.length === 0) {
+                alert('No data available to generate PDF. Please load data first.');
+                return;
+            }
+            downloadPdfBtn.textContent = 'Generating PDF...';
+            downloadPdfBtn.style.opacity = '0.7';
+            downloadPdfBtn.style.pointerEvents = 'none';
+
+            try {
+                // Access jsPDF from html2pdf bundle
+                const { jsPDF } = window.jspdf || {};
+                if (!jsPDF) { alert('PDF library not loaded. Please refresh.'); downloadPdfBtn.textContent = 'Download PDF Report'; downloadPdfBtn.style.opacity = '1'; downloadPdfBtn.style.pointerEvents = 'auto'; return; }
+                const doc = new jsPDF('p', 'mm', 'a4');
+                const pw = 210, ph = 297, ml = 14, mr = 14, mt = 14;
+                const cw = pw - ml - mr;
+                let y = mt;
+
+                // --- Gather data ---
+                const kpiGet = (id) => (document.getElementById(id)?.textContent || '--').trim();
+                const kpis = {
+                    totalBoq: kpiGet('kpi-boq-records'), totalAct: kpiGet('kpi-act-records'), totalProg: kpiGet('kpi-prog-records'), totalRem: kpiGet('kpi-rem-records'),
+                    goodBoq: kpiGet('kpi-boq-concrete'), goodAct: kpiGet('kpi-act-concrete'), goodProg: kpiGet('kpi-prog-concrete'), goodRem: kpiGet('kpi-rem-concrete'),
+                    badBoq: kpiGet('kpi-boq-wooden'), badAct: kpiGet('kpi-act-wooden'), badProg: kpiGet('kpi-prog-wooden'), badRem: kpiGet('kpi-rem-wooden'),
+                    newBoq: kpiGet('kpi-boq-users'), newAct: kpiGet('kpi-act-users'), newProg: kpiGet('kpi-prog-users'), newRem: kpiGet('kpi-rem-users'),
+                    feederBoq: kpiGet('kpi-boq-feeders'), feederAct: kpiGet('kpi-act-feeders'), feederProg: kpiGet('kpi-prog-feeders'),
+                    dtBoq: kpiGet('kpi-boq-dts'), dtAct: kpiGet('kpi-act-dts'), dtProg: kpiGet('kpi-prog-dts'),
+                    activeUsers: kpiGet('topCardActiveUsers'), completionRate: kpiGet('topCardCompletionRate')
+                };
+                const vendorCounts = {};
+                filteredData.forEach(d => { vendorCounts[d.Vendor_Name || 'Other'] = (vendorCounts[d.Vendor_Name || 'Other'] || 0) + 1; });
+                const sortedVendors = Object.entries(vendorCounts).sort((a, b) => b[1] - a[1]);
+                const userCounts = {};
+                filteredData.forEach(d => { if (d.User) userCounts[d.User] = (userCounts[d.User] || 0) + 1; });
+                const sortedUsers = Object.entries(userCounts).sort((a, b) => b[1] - a[1]);
+                const defects = filteredData.filter(d => d.Issue_Type && d.Issue_Type !== 'Good Condition').length;
+                const defectPct = filteredData.length > 0 ? ((defects / filteredData.length) * 100).toFixed(1) : '0';
+                const healthPct = filteredData.length > 0 ? (((filteredData.length - defects) / filteredData.length) * 100).toFixed(1) : '0';
+                const dtData = getEnhancedDTData();
+                const dtRows = dtData.sort((a, b) => b.actualTotal - a.actualTotal).slice(0, 40);
+                // Velocity
+                const pdfDateStrings = filteredData.map(d => d["Date/timestamp"] ? d["Date/timestamp"].split(' ')[0] : '').filter(Boolean);
+                const pdfDates = [...new Set(pdfDateStrings)].sort();
+                const pdfActiveDays = pdfDates.length || 1;
+                const pdfRunRate = (filteredData.length / pdfActiveDays).toFixed(1);
+                const pdfRecent3 = pdfDates.slice(-3);
+                const pdfPrev3 = pdfDates.slice(-6, -3);
+                const pdfRecentCount = filteredData.filter(d => pdfRecent3.includes((d["Date/timestamp"] || '').split(' ')[0])).length;
+                const pdfPrevCount = filteredData.filter(d => pdfPrev3.includes((d["Date/timestamp"] || '').split(' ')[0])).length;
+                const pdfRecentRate = pdfRecent3.length > 0 ? Math.round(pdfRecentCount / pdfRecent3.length) : 0;
+                const pdfPrevRate = pdfPrev3.length > 0 ? Math.round(pdfPrevCount / pdfPrev3.length) : 0;
+                const pdfTrendPct = pdfPrevRate > 0 ? Math.round(((pdfRecentRate - pdfPrevRate) / pdfPrevRate) * 100) : 0;
+                const pdfTrending = pdfTrendPct > 5 ? 'accelerating' : pdfTrendPct < -5 ? 'decelerating' : 'holding steady';
+                const pdfFirstDate = pdfDates[0] || 'N/A';
+                const pdfLastDate = pdfDates[pdfDates.length - 1] || 'N/A';
+                const TARGET_RATE = 50;
+                let pdfVelocityVerdict = pdfRunRate >= TARGET_RATE ? 'on target' : pdfRunRate >= TARGET_RATE * 0.7 ? 'approaching target' : 'below target';
+                // Coverage
+                const pdfFeederCount = new Set(filteredData.map(d => d.Feeder).filter(Boolean)).size;
+                const pdfDtCount = new Set(filteredData.map(d => d["DT Name"]).filter(Boolean)).size;
+                const pdfUtCount = new Set(filteredData.map(d => d.Undertaking).filter(Boolean)).size;
+                const pdfBuCount = new Set(filteredData.map(d => d["Bussines Unit"]).filter(Boolean)).size;
+                const pdfTotalUsers = Object.keys(userCounts).length;
+                const pdfBoqTotal = boqData.length > 0 ? boqData.reduce((s, d) => s + (parseInt(d["POLES Grand Total"]) || 0), 0) : 0;
+                const pdfCompletionPct = pdfBoqTotal > 0 ? Math.min(((filteredData.length / pdfBoqTotal) * 100), 100).toFixed(1) : null;
+                const pdfPoleTypes = {};
+                filteredData.forEach(d => { const t = (d["Type of Pole"] || 'Unknown').toUpperCase(); pdfPoleTypes[t] = (pdfPoleTypes[t] || 0) + 1; });
+                const pdfDominantPole = Object.entries(pdfPoleTypes).sort((a, b) => b[1] - a[1])[0];
+                const pdfDominantPolePct = pdfDominantPole ? ((pdfDominantPole[1] / filteredData.length) * 100).toFixed(0) : 0;
+                // DT status
+                const pdfDtCompleted = dtData.filter(r => r.boqTotal > 0 && (r.actualTotal / r.boqTotal) >= 1).length;
+                const pdfDtNearComplete = dtData.filter(r => r.boqTotal > 0 && (r.actualTotal / r.boqTotal) >= 0.9 && (r.actualTotal / r.boqTotal) < 1).length;
+                const pdfDtInProgress = dtData.filter(r => r.actualTotal > 0 && (r.boqTotal === 0 || (r.actualTotal / r.boqTotal) < 0.9)).length;
+                const pdfDtNotStarted = dtData.filter(r => r.actualTotal === 0).length;
+                // Vendor officer insights
+                const pdfVendorOfficerInsights = ['ETC Workforce', 'Jesom Technology', 'Ikeja Electric'].map(v => {
+                    const vU = {}; filteredData.filter(d => d.Vendor_Name === v).forEach(d => { if (d.User) vU[d.User] = (vU[d.User] || 0) + 1; });
+                    const s = Object.entries(vU).sort((a, b) => b[1] - a[1]); if (s.length === 0) return null;
+                    return { vendor: v, officers: s.length, best: { name: getDisplayName(s[0][0]), count: s[0][1] }, worst: { name: getDisplayName(s[s.length - 1][0]), count: s[s.length - 1][1] }, avg: Math.round(s.reduce((x, u) => x + u[1], 0) / s.length) };
+                }).filter(Boolean);
+                // Filters
+                const getFilterVal = (id) => { const el = document.getElementById(id); if (!el) return 'All'; if (el.tagName === 'SELECT') return el.options[el.selectedIndex]?.text || 'All'; return el.value || 'All'; };
+                const filters = { vendor: getFilterVal('vendorFilter'), bu: getFilterVal('buFilter'), ut: getFilterVal('utFilter'), user: getFilterVal('userFilter') };
+                const activeFilters = Object.entries(filters).filter(([, v]) => v !== 'All' && v !== 'All Vendors' && v !== 'All Business Units' && v !== 'All Undertakings' && v !== 'All Users');
+                const filterText = activeFilters.length > 0 ? activeFilters.map(([k, v]) => `${k}: ${v}`).join(' | ') : 'No filters applied (All Data)';
+                const now = new Date();
+                const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+                // === HELPERS ===
+                const checkPage = (need) => { if (y + need > ph - 14) { doc.addPage(); y = mt; } };
+                const setColor = (hex) => { const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16); return [r, g, b]; };
+                const drawLine = (y1) => { doc.setDrawColor(200); doc.line(ml, y1, pw - mr, y1); };
+                // Wrap text into lines that fit maxWidth
+                const wrapText = (text, maxWidth, fontSize) => {
+                    doc.setFontSize(fontSize);
+                    const words = text.split(' ');
+                    const lines = []; let line = '';
+                    words.forEach(w => {
+                        const test = line ? line + ' ' + w : w;
+                        if (doc.getTextWidth(test) > maxWidth) { if (line) lines.push(line); line = w; }
+                        else { line = test; }
+                    });
+                    if (line) lines.push(line);
+                    return lines;
+                };
+                // Draw a simple table
+                const drawTable = (headers, rows, colWidths, opts = {}) => {
+                    const fs = opts.fontSize || 8;
+                    const rh = opts.rowHeight || 6;
+                    const hdrBg = opts.headerBg || [30, 64, 175];
+                    doc.setFontSize(fs);
+                    // Header
+                    checkPage(rh * 3);
+                    doc.setFillColor(...hdrBg);
+                    doc.rect(ml, y, cw, rh + 2, 'F');
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFont('helvetica', 'bold');
+                    let cx = ml + 1;
+                    headers.forEach((h, i) => {
+                        doc.text(h, cx + 1, y + rh - 0.5);
+                        cx += colWidths[i];
+                    });
+                    y += rh + 2;
+                    // Rows
+                    doc.setFont('helvetica', 'normal');
+                    rows.forEach((row, ri) => {
+                        checkPage(rh + 1);
+                        if (ri % 2 === 0) { doc.setFillColor(248, 250, 252); doc.rect(ml, y, cw, rh + 1, 'F'); }
+                        doc.setTextColor(30, 30, 30);
+                        cx = ml + 1;
+                        row.forEach((cell, ci) => {
+                            const txt = String(cell).substring(0, Math.floor(colWidths[ci] / 1.8));
+                            doc.text(txt, cx + 1, y + rh - 0.5);
+                            cx += colWidths[ci];
+                        });
+                        // Grid lines
+                        doc.setDrawColor(220); cx = ml;
+                        colWidths.forEach(w => { doc.line(cx, y, cx, y + rh + 1); cx += w; });
+                        doc.line(cx, y, cx, y + rh + 1);
+                        doc.line(ml, y + rh + 1, ml + cw, y + rh + 1);
+                        y += rh + 1;
+                    });
+                    y += 3;
+                };
+
+                // === HEADER ===
+                doc.setFillColor(30, 64, 175);
+                doc.rect(0, 0, pw, 22, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(16); doc.setFont('helvetica', 'bold');
+                doc.text('IDB 2.0 ASSETS TAGGING MONITORING REPORT', pw / 2, 10, { align: 'center' });
+                doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+                doc.text(`Generated: ${dateStr} at ${timeStr}  |  ${filterText}`, pw / 2, 17, { align: 'center' });
+                y = 28;
+
+                // === EXECUTIVE INSIGHTS ===
+                doc.setFillColor(248, 250, 252);
+                const insightStartY = y;
+                // We'll draw the background after we know the height
+
+                doc.setFontSize(12); doc.setFont('helvetica', 'bold');
+                doc.setTextColor(...setColor('#1e40af'));
+                doc.text('EXECUTIVE SUMMARY & DASHBOARD INSIGHTS', ml + 3, y + 5);
+                y += 10;
+
+                // Paragraph helper
+                const writeParagraph = (text, indent) => {
+                    const lines = wrapText(text, cw - (indent || 6), 8.5);
+                    doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(51, 65, 85);
+                    lines.forEach(line => {
+                        checkPage(4.5);
+                        doc.text(line, ml + (indent || 3), y);
+                        y += 4;
+                    });
+                    y += 2;
+                };
+
+                // Project overview
+                writeParagraph(
+                    `The IDB 2.0 Asset Enumeration project has captured a total of ${filteredData.length.toLocaleString()} pole assets across ${pdfBuCount} Business Unit${pdfBuCount > 1 ? 's' : ''}, covering ${pdfFeederCount} feeders, ${pdfDtCount} distribution transformers, and ${pdfUtCount} undertaking${pdfUtCount > 1 ? 's' : ''}. A workforce of ${pdfTotalUsers} active field officers has been deployed across all vendor teams. Data collection spans from ${pdfFirstDate} to ${pdfLastDate} (${pdfActiveDays} active working days).`
+                );
+
+                // Velocity
+                writeParagraph(
+                    `Project Velocity: The current run rate stands at ${pdfRunRate} poles/day, which is ${pdfVelocityVerdict} against the benchmark of ${TARGET_RATE} poles/day. The recent 3-day trend is ${pdfTrending}${Math.abs(pdfTrendPct) > 0 ? ` (${pdfTrendPct > 0 ? '+' : ''}${pdfTrendPct}% compared to the prior 3-day period)` : ''}.${pdfCompletionPct !== null ? ` Overall BOQ completion stands at ${pdfCompletionPct}% (${filteredData.length.toLocaleString()} of ${pdfBoqTotal.toLocaleString()} target poles).` : ''}`
+                );
+
+                // Asset health
+                writeParagraph(
+                    `Asset Health Assessment: Of the ${filteredData.length.toLocaleString()} poles surveyed, ${healthPct}% are in good condition while ${defects.toLocaleString()} poles (${defectPct}%) require attention (replacement or repair).${pdfDominantPole ? ` The dominant pole material is ${pdfDominantPole[0].charAt(0) + pdfDominantPole[0].slice(1).toLowerCase()}, accounting for ${pdfDominantPolePct}% of all surveyed assets.` : ''} ${parseFloat(defectPct) > 25 ? 'The defect rate is elevated and warrants immediate field review.' : parseFloat(defectPct) > 15 ? 'The defect rate is moderate; targeted maintenance is recommended.' : 'The asset health ratio is within acceptable parameters.'}`
+                );
+
+                // Vendor performance
+                const vendorText = sortedVendors.map(([name, count]) => `${name} has tagged ${count.toLocaleString()} assets (${((count / filteredData.length) * 100).toFixed(1)}%)`).join(', ');
+                writeParagraph(`Vendor Performance: ${vendorText}.${sortedVendors.length > 1 ? ` ${sortedVendors[0][0]} leads the enumeration effort.` : ''}`);
+
+                // Officer performance
+                if (pdfVendorOfficerInsights.length > 0) {
+                    const officerText = pdfVendorOfficerInsights.map(v => `Under ${v.vendor} (${v.officers} officers), top: ${v.best.name} (${v.best.count} poles), lowest: ${v.worst.name} (${v.worst.count} poles, avg: ${v.avg}/officer)`).join('. ');
+                    writeParagraph(`Field Officer Performance: ${officerText}.${sortedUsers.length > 0 ? ` Overall leader: ${getDisplayName(sortedUsers[0][0])} with ${sortedUsers[0][1].toLocaleString()} assets.` : ''}`);
+                }
+
+                // DT progress
+                writeParagraph(`DT Progress Overview: Out of ${dtData.length} distribution transformers tracked: ${pdfDtCompleted} completed, ${pdfDtNearComplete} near completion, ${pdfDtInProgress} in progress, and ${pdfDtNotStarted} not yet started.${pdfDtNotStarted > 0 ? ` The ${pdfDtNotStarted} unstarted DTs should be prioritized in the next deployment cycle.` : ' All tracked DTs have commenced operations.'}`);
+
+                // Recommendations
+                doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...setColor('#92400e'));
+                checkPage(6);
+                doc.text('KEY RECOMMENDATIONS:', ml + 3, y); y += 4;
+                doc.setFont('helvetica', 'normal'); doc.setTextColor(120, 53, 15);
+                const recs = [];
+                if (parseFloat(pdfRunRate) < TARGET_RATE) recs.push(`Increase daily run rate from ${pdfRunRate} to meet the ${TARGET_RATE} poles/day target.`);
+                else recs.push(`Maintain current run rate of ${pdfRunRate} poles/day which meets the project target.`);
+                if (parseFloat(defectPct) > 15) recs.push(`Investigate the ${defectPct}% defect rate. Prioritize replacement of damaged poles.`);
+                if (pdfDtNotStarted > 0) recs.push(`Mobilize resources for the ${pdfDtNotStarted} unstarted DTs to prevent timeline slippage.`);
+                if (pdfVendorOfficerInsights.some(v => v.worst.count < v.avg * 0.5)) recs.push('Address performance gaps among lower-performing officers via training.');
+                recs.push('Continue daily monitoring and schedule weekly vendor review meetings.');
+                recs.forEach(r => {
+                    const lines = wrapText('  - ' + r, cw - 6, 8);
+                    lines.forEach(l => { checkPage(4); doc.text(l, ml + 5, y); y += 3.8; });
+                });
+                y += 2;
+
+                // Draw insight background
+                const insightH = y - insightStartY;
+                // Draw on page 1 behind text — use rect with light fill
+                const totalPages = doc.internal.getNumberOfPages();
+                for (let p = 1; p <= totalPages; p++) {
+                    doc.setPage(p);
+                    if (p === 1) {
+                        doc.setFillColor(248, 250, 252); doc.setDrawColor(30, 64, 175);
+                        doc.rect(ml - 1, insightStartY - 2, cw + 2, Math.min(insightH + 4, ph - insightStartY), 'D');
+                    }
+                }
+                doc.setPage(totalPages);
+
+                // === KPI TABLE ===
+                y += 4; checkPage(10);
+                doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...setColor('#1e40af'));
+                doc.text('KEY PERFORMANCE INDICATORS', ml, y); y += 2; drawLine(y); y += 4;
+                const kpiHeaders = ['Metric', 'Expected', 'Actual', 'Progress', 'Remaining'];
+                const kpiColW = [cw * 0.30, cw * 0.17, cw * 0.17, cw * 0.18, cw * 0.18];
+                const kpiRows = [
+                    ['Total Poles', kpis.totalBoq, kpis.totalAct, kpis.totalProg, kpis.totalRem],
+                    ['Good Condition', kpis.goodBoq, kpis.goodAct, kpis.goodProg, kpis.goodRem],
+                    ['Bad Poles (Replace)', kpis.badBoq, kpis.badAct, kpis.badProg, kpis.badRem],
+                    ['New Poles (Install)', kpis.newBoq, kpis.newAct, kpis.newProg, kpis.newRem],
+                    ['Feeders', kpis.feederBoq, kpis.feederAct, kpis.feederProg, '-'],
+                    ['DTs', kpis.dtBoq, kpis.dtAct, kpis.dtProg, '-']
+                ];
+                drawTable(kpiHeaders, kpiRows, kpiColW);
+
+                // === SUMMARY METRICS ===
+                checkPage(14);
+                const metricBoxW = cw / 4;
+                const metrics = [
+                    { label: 'Active Users', val: kpis.activeUsers, bg: [239, 246, 255], color: '#1e40af' },
+                    { label: 'Completion Rate', val: kpis.completionRate, bg: [240, 253, 244], color: '#059669' },
+                    { label: 'Asset Health', val: healthPct + '%', bg: [254, 252, 232], color: '#d97706' },
+                    { label: 'Defects Found', val: defects.toLocaleString(), bg: [254, 242, 242], color: '#dc2626' }
+                ];
+                metrics.forEach((m, i) => {
+                    const bx = ml + i * metricBoxW;
+                    doc.setFillColor(...m.bg); doc.roundedRect(bx + 1, y, metricBoxW - 2, 12, 1, 1, 'F');
+                    doc.setFontSize(6.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(100);
+                    doc.text(m.label.toUpperCase(), bx + metricBoxW / 2, y + 4, { align: 'center' });
+                    doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(...setColor(m.color));
+                    doc.text(String(m.val), bx + metricBoxW / 2, y + 10.5, { align: 'center' });
+                });
+                y += 17;
+
+                // === VENDOR TABLE ===
+                checkPage(10);
+                doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...setColor('#1e40af'));
+                doc.text('VENDOR PERFORMANCE BREAKDOWN', ml, y); y += 2; drawLine(y); y += 4;
+                const vHeaders = ['Vendor', 'Assets Tagged', 'Share'];
+                const vColW = [cw * 0.45, cw * 0.30, cw * 0.25];
+                const vRows = sortedVendors.map(([name, count]) => [name, count.toLocaleString(), ((count / filteredData.length) * 100).toFixed(1) + '%']);
+                vRows.push(['TOTAL', filteredData.length.toLocaleString(), '100%']);
+                drawTable(vHeaders, vRows, vColW);
+
+                // === TOP OFFICERS ===
+                checkPage(10);
+                doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...setColor('#1e40af'));
+                doc.text('TOP FIELD OFFICERS (BY ASSETS TAGGED)', ml, y); y += 2; drawLine(y); y += 4;
+                const uHeaders = ['#', 'Officer', 'Assets', 'Share'];
+                const uColW = [cw * 0.08, cw * 0.50, cw * 0.22, cw * 0.20];
+                const uRows = sortedUsers.slice(0, 20).map(([user, count], i) => [
+                    String(i + 1), getDisplayName(user), count.toLocaleString(), ((count / filteredData.length) * 100).toFixed(1) + '%'
+                ]);
+                drawTable(uHeaders, uRows, uColW);
+
+                // === DT TABLE ===
+                checkPage(10);
+                doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...setColor('#1e40af'));
+                const dtTitle = `DT PERFORMANCE ANALYSIS${dtRows.length < dtData.length ? ` (Top ${dtRows.length} of ${dtData.length})` : ''}`;
+                doc.text(dtTitle, ml, y); y += 2; drawLine(y); y += 4;
+                const dHeaders = ['#', 'DT Name', 'Feeder', 'Vendor', 'Exp.', 'Act.', 'Good', 'Bad', 'Prog.', 'Status'];
+                const dColW = [cw*0.04, cw*0.18, cw*0.15, cw*0.12, cw*0.07, cw*0.07, cw*0.07, cw*0.06, cw*0.08, cw*0.16];
+                const dRows = dtRows.map((row, i) => {
+                    const prog = row.boqTotal > 0 ? ((row.actualTotal / row.boqTotal) * 100).toFixed(1) : '0.0';
+                    let status = 'In Progress';
+                    if (row.actualTotal === 0) status = 'Not Started';
+                    else if (parseFloat(prog) >= 100) status = 'Completed';
+                    else if (parseFloat(prog) > 90) status = 'Near Complete';
+                    return [String(i + 1), row.dtName, row.feeder, row.vendor, String(row.boqTotal), String(row.actualTotal), String(row.concrete), String(row.wooden), prog + '%', status];
+                });
+                drawTable(dHeaders, dRows, dColW, { fontSize: 6.5, rowHeight: 5 });
+
+                // === FOOTER on all pages ===
+                const totalPgs = doc.internal.getNumberOfPages();
+                for (let p = 1; p <= totalPgs; p++) {
+                    doc.setPage(p);
+                    doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(150);
+                    doc.text(`IDB 2.0 Monitoring System  |  Page ${p} of ${totalPgs}  |  Report generated ${dateStr}`, pw / 2, ph - 6, { align: 'center' });
+                }
+
+                // === SAVE ===
+                doc.save(`IDB_Dashboard_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+                downloadPdfBtn.textContent = 'Download PDF Report';
+                downloadPdfBtn.style.opacity = '1';
+                downloadPdfBtn.style.pointerEvents = 'auto';
+
+            } catch (err) {
+                console.error('PDF Build Error:', err);
+                alert('Failed to build PDF report: ' + err.message);
+                downloadPdfBtn.textContent = 'Download PDF Report';
+                downloadPdfBtn.style.opacity = '1';
+                downloadPdfBtn.style.pointerEvents = 'auto';
+            }
+        });
+    }
 
 }); // End DOMContentLoaded
