@@ -1710,10 +1710,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const actDTs = new Set(filteredData.map(d => d["DT Name"] || d["DT_Name"])).size;
         updateModernCard('dts', boqDTs, actDTs);
 
-        // --- G. Buildings ---
-        // BOQ for buildings might not exist, defaulting to 0 for now.
+        // --- G. Buildings (unique by SLRN) ---
         const boqBuildings = 0;
-        const actBuildings = filteredData.reduce((sum, item) => sum + (parseInt(item["No of Buildings Connected to the Pole"]) || 0), 0);
+        const uniqueBuildingSLRNs = new Set();
+        filteredData.forEach(item => {
+            const slrnField = item["Associated Buildings SLRN"] || "";
+            slrnField.split(";").forEach(s => {
+                const trimmed = s.trim();
+                if (trimmed) uniqueBuildingSLRNs.add(trimmed);
+            });
+        });
+        const actBuildings = uniqueBuildingSLRNs.size;
         updateModernCard('buildings', boqBuildings, actBuildings);
     }
 

@@ -1,0 +1,16 @@
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+
+# Vercel
+.vercel/
+
+# Temp files
+*.tmp
+*.log
+diff.txt
