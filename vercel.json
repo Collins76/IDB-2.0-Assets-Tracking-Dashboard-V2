@@ -1,10 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "projectName": "idb-assets-dashboard-v2",
-  "buildCommand": null,
+  "buildCommand": "",
+  "installCommand": "",
   "outputDirectory": ".",
   "framework": null,
-  "rewrites": [],
   "headers": [
     {
       "source": "/(.*).json",
