@@ -2,33 +2,37 @@
 .marquee-banner {
     width: 100%;
     overflow: hidden;
-    background: hsl(220 20% 10%);
-    border: 1px solid hsl(220 15% 20%);
-    border-radius: 6px;
+    background: linear-gradient(180deg, #1a1008 0%, #0d0a04 50%, #1a1008 100%);
+    border-top: 3px solid #cc0000;
+    border-bottom: 3px solid #cc0000;
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
     margin-bottom: 1rem;
     margin-top: 0.5rem;
-    padding: 10px 0;
+    padding: 12px 0;
 }
 
 .marquee-track {
     display: flex;
     width: max-content;
-    animation: marquee-scroll 25s linear infinite;
+    animation: marquee-scroll 15s linear infinite;
 }
 
 .marquee-text {
     padding: 0 3rem;
     white-space: nowrap;
-    font-size: 0.95rem;
-    font-weight: 600;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: #00e5ff;
+    font-size: 1.15rem;
+    font-weight: 700;
+    font-style: italic;
+    letter-spacing: 2px;
+    text-transform: none;
+    color: #e8a817;
     text-shadow:
-        0 0 7px rgba(0, 229, 255, 0.7),
-        0 0 15px rgba(0, 229, 255, 0.5),
-        0 0 30px rgba(0, 229, 255, 0.3);
-    animation: glow-pulse 2.5s ease-in-out infinite alternate;
+        0 0 8px rgba(232, 168, 23, 0.6),
+        0 0 20px rgba(232, 168, 23, 0.3),
+        1px 1px 2px rgba(0, 0, 0, 0.8);
+    animation: gold-glow 2.5s ease-in-out infinite alternate;
 }
 
 @keyframes marquee-scroll {
@@ -40,21 +44,21 @@
     }
 }
 
-@keyframes glow-pulse {
+@keyframes gold-glow {
     0% {
         text-shadow:
-            0 0 7px rgba(0, 229, 255, 0.7),
-            0 0 15px rgba(0, 229, 255, 0.5),
-            0 0 30px rgba(0, 229, 255, 0.3);
-        color: #00e5ff;
+            0 0 8px rgba(232, 168, 23, 0.6),
+            0 0 20px rgba(232, 168, 23, 0.3),
+            1px 1px 2px rgba(0, 0, 0, 0.8);
+        color: #e8a817;
     }
     100% {
         text-shadow:
-            0 0 10px rgba(0, 229, 255, 1),
-            0 0 25px rgba(0, 229, 255, 0.8),
-            0 0 50px rgba(0, 229, 255, 0.5),
-            0 0 80px rgba(0, 229, 255, 0.3);
-        color: #80f0ff;
+            0 0 12px rgba(255, 200, 50, 0.9),
+            0 0 30px rgba(255, 200, 50, 0.5),
+            0 0 50px rgba(232, 168, 23, 0.3),
+            1px 1px 2px rgba(0, 0, 0, 0.8);
+        color: #ffd040;
     }
 }
 
