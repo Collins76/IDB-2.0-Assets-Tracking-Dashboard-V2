@@ -34,6 +34,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const rowsPerPage = 25;
     let map = null;
     let markersLayer = null;
+    let boundaryLayer = null;      // Lagos + UT polygon layers
+    let utLabelLayer = null;       // UT name labels (permanent)
+    let boundariesLoaded = false;  // one-time load guard
+    let boundaryFullBounds = null; // union bounds of Lagos + all UTs
+    let mapInitiallyFitted = false;// first-render fit guard
+
+    // Color palette keyed by Business Unit (for UT boundary fills / strokes)
+    const BU_COLORS = {
+        'ABULE EGBA': '#3b82f6',
+        'IKEJA':      '#10b981',
+        'IKORODU':    '#a855f7',
+        'OSHODI':     '#f59e0b',
+        'SHOMOLU':    '#ef4444',
+        'AKOWONJO':   '#06b6d4'
+    };
 
     // ── Multi-Select Dropdown Component ──
     const multiSelects = {};
@@ -2708,18 +2723,40 @@ document.addEventListener('DOMContentLoaded', () => {
     // 7. Render Map (Leaflet)
     function renderMap() {
         if (!map) {
-            // Init map if not exists
-            // Center on Shomolu approx
-            map = L.map('map').setView([6.536, 3.357], 15);
-            // Add OSM tile layer
+            // Init map — default view centers on Lagos; boundary fit will take over once loaded
+            map = L.map('map', { zoomControl: true }).setView([6.55, 3.45], 10);
+
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors'
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 19
             }).addTo(map);
+
+            // Layer order: boundaries (bottom) → labels → data markers (top)
+            boundaryLayer = L.layerGroup().addTo(map);
+            utLabelLayer = L.layerGroup().addTo(map);
             markersLayer = L.layerGroup().addTo(map);
+
+            // Hide UT text labels at far-out zooms to avoid clutter
+            const mapEl = document.getElementById('map');
+            const updateLabelVisibility = () => {
+                mapEl.classList.toggle('ut-labels-hidden', map.getZoom() < 11);
+            };
+            map.on('zoomend', updateLabelVisibility);
+
+            // One-time: load boundaries, draw them, then zoom to full Lagos + UT extent
+            loadBoundaries().then(() => {
+                updateLabelVisibility();
+                if (boundaryFullBounds && boundaryFullBounds.isValid()) {
+                    map.fitBounds(boundaryFullBounds, { padding: [18, 18] });
+                    mapInitiallyFitted = true;
+                }
+                // Leaflet sometimes mis-sizes when its container was hidden at init
+                setTimeout(() => map.invalidateSize(), 50);
+            });
         }
 
+        // Render data markers (rebuilt on every filter change)
         markersLayer.clearLayers();
-
         let count = 0;
         const limit = 3000; // Performance limit
 
@@ -2759,13 +2796,107 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Fit Bounds if we have markers
-        if (count > 0 && markersLayer.getLayers().length > 0) {
-            const group = L.featureGroup(markersLayer.getLayers());
-            // Add a slight delay or just fit
+        // Always keep the map framed to the full Lagos + UT extent on the initial render.
+        // Subsequent filter re-renders keep whatever the user has panned/zoomed to.
+        if (!mapInitiallyFitted && boundaryFullBounds && boundaryFullBounds.isValid()) {
             try {
-                map.fitBounds(group.getBounds());
-            } catch (e) { console.warn("Bounds error", e); }
+                map.fitBounds(boundaryFullBounds, { padding: [18, 18] });
+                mapInitiallyFitted = true;
+            } catch (e) { console.warn("Boundary fit failed", e); }
+        }
+    }
+
+    // Load Lagos + UT boundary GeoJSONs once, draw styled polygons, and add labels.
+    async function loadBoundaries() {
+        if (boundariesLoaded) return;
+        try {
+            const bust = '?v=' + Date.now();
+            const [lagosData, utData] = await Promise.all([
+                fetch('./data/lagos_boundary.geojson' + bust).then(r => r.json()),
+                fetch('./data/ut_boundaries.geojson' + bust).then(r => r.json())
+            ]);
+
+            // Lagos outer boundary — bold gold outline, no fill (sits under UTs)
+            const lagosGeo = L.geoJSON(lagosData, {
+                style: {
+                    color: '#fbbf24',
+                    weight: 3.5,
+                    opacity: 0.95,
+                    fillOpacity: 0,
+                    lineCap: 'round',
+                    lineJoin: 'round'
+                },
+                interactive: false
+            }).addTo(boundaryLayer);
+
+            // Lagos name tag, anchored at the top of its bounds for a polished header feel
+            const lagosBounds = lagosGeo.getBounds();
+            const lagosTop = L.latLng(lagosBounds.getNorth(), lagosBounds.getCenter().lng);
+            L.marker(lagosTop, {
+                interactive: false,
+                keyboard: false,
+                icon: L.divIcon({
+                    className: 'lagos-label-wrapper',
+                    html: '<div class="lagos-label">LAGOS STATE</div>',
+                    iconSize: [0, 0]
+                })
+            }).addTo(boundaryLayer);
+
+            // UT boundaries — color coded by Business Unit
+            const utGeo = L.geoJSON(utData, {
+                style: (feat) => {
+                    const bu = (feat.properties.BU || '').toUpperCase();
+                    const col = BU_COLORS[bu] || '#94a3b8';
+                    return {
+                        color: col,
+                        weight: 1.4,
+                        opacity: 0.9,
+                        fillColor: col,
+                        fillOpacity: 0.08,
+                        lineJoin: 'round'
+                    };
+                },
+                onEachFeature: (feat, layer) => {
+                    const name = feat.properties.Name || feat.properties.UT || '';
+                    const bu = feat.properties.BU || '';
+                    const col = BU_COLORS[(bu || '').toUpperCase()] || '#94a3b8';
+
+                    layer.on('mouseover', e => {
+                        e.target.setStyle({ fillOpacity: 0.28, weight: 2.4 });
+                        e.target.bringToFront();
+                    });
+                    layer.on('mouseout', e => {
+                        utGeo.resetStyle(e.target);
+                    });
+
+                    layer.bindPopup(`
+                        <div style="font-size:0.9em;color:#111;min-width:150px;">
+                            <div style="border-left:3px solid ${col};padding-left:8px;">
+                                <b style="font-size:1.1em;">${name}</b><br>
+                                <span style="color:#555;">Business Unit: </span><b>${bu}</b>
+                            </div>
+                        </div>
+                    `);
+
+                    // Polished centered label
+                    const center = layer.getBounds().getCenter();
+                    L.marker(center, {
+                        interactive: false,
+                        keyboard: false,
+                        icon: L.divIcon({
+                            className: 'ut-label-wrapper',
+                            html: `<div class="ut-label" style="border-color:${col};">${name}</div>`,
+                            iconSize: [0, 0]
+                        })
+                    }).addTo(utLabelLayer);
+                }
+            }).addTo(boundaryLayer);
+
+            // Union bounds for the whole study area
+            boundaryFullBounds = L.featureGroup([lagosGeo, utGeo]).getBounds();
+            boundariesLoaded = true;
+        } catch (err) {
+            console.error('Failed to load boundary GeoJSON:', err);
         }
     }
 
