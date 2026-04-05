@@ -2936,6 +2936,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             const v = arr.find(x => x !== undefined && x !== null && x !== '');
                             return v === undefined ? 'N/A' : String(v);
                         };
+                        const totalPoles = utRows.length.toLocaleString();
                         const feeder = first(utRows.map(r => r.Feeder));
                         const dtName = first(utRows.map(r => r["DT Name"]));
                         const vendor = first(utRows.map(r => r.Vendor_Name));
@@ -2948,6 +2949,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <div class="asset-popup-table">
                                     <div class="asset-popup-row"><div class="asset-popup-label">Business Unit</div><div class="asset-popup-value">${bu || 'N/A'}</div></div>
                                     <div class="asset-popup-row"><div class="asset-popup-label">Undertaking</div><div class="asset-popup-value">${name || 'N/A'}</div></div>
+                                    <div class="asset-popup-row"><div class="asset-popup-label">Total Poles</div><div class="asset-popup-value">${totalPoles}</div></div>
                                     <div class="asset-popup-row"><div class="asset-popup-label">Feeder</div><div class="asset-popup-value">${feeder}</div></div>
                                     <div class="asset-popup-row"><div class="asset-popup-label">DT Name</div><div class="asset-popup-value">${dtName}</div></div>
                                     <div class="asset-popup-row"><div class="asset-popup-label">Vendor</div><div class="asset-popup-value">${vendor}</div></div>
