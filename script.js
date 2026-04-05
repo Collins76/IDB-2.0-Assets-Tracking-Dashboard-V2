@@ -522,34 +522,44 @@ document.addEventListener('DOMContentLoaded', () => {
             './BOQ-IDB.json',
             'https://raw.githubusercontent.com/Collins76/IDB-2.0-Assets-Tracking-Dashboard-V2/main/BOQ-IDB.json'
         )
-    ]).then(([fieldData, boq]) => {
-        // Process Field Data
-        fieldData.forEach(item => {
-            item.Vendor_Name = inferVendor(item.User);
-            if (!item.Issue_Type) item.Issue_Type = simulateIssue(item);
-        });
-        globalData = fieldData;
-        filteredData = fieldData;
-
-        // Process BOQ Data
-        boqData = boq;
-        console.log("Total Data Loaded:", boqData.length);
-
-        // Unlock Toggle
-        const toggleWrapper = document.getElementById('viewModeWrapper');
-        if (toggleWrapper) toggleWrapper.style.display = 'flex';
-
-        populateFilters();
-        updateDashboard();
-        updateExecutiveSummary();
-
-        document.querySelectorAll('.last-updated').forEach(el => {
-            el.textContent = `Last Updated: ${new Date().toLocaleTimeString()}`;
-        });
-
-    }).catch(error => {
-        console.error('Error fetching data:', error);
+    ])
+    .catch(error => {
+        // Only true network / fetch failures land here
+        console.error('Error fetching dashboard data from all sources:', error);
         alert('Failed to load dashboard data automatically. Please check network connection.');
+        throw error;
+    })
+    .then(([fieldData, boq]) => {
+        if (!fieldData || !boq) return;
+        try {
+            // Process Field Data
+            fieldData.forEach(item => {
+                item.Vendor_Name = inferVendor(item.User);
+                if (!item.Issue_Type) item.Issue_Type = simulateIssue(item);
+            });
+            globalData = fieldData;
+            filteredData = fieldData;
+
+            // Process BOQ Data
+            boqData = boq;
+            console.log("Total Data Loaded:", boqData.length);
+
+            // Unlock Toggle
+            const toggleWrapper = document.getElementById('viewModeWrapper');
+            if (toggleWrapper) toggleWrapper.style.display = 'flex';
+
+            populateFilters();
+            updateDashboard();
+            updateExecutiveSummary();
+
+            document.querySelectorAll('.last-updated').forEach(el => {
+                el.textContent = `Last Updated: ${new Date().toLocaleTimeString()}`;
+            });
+        } catch (processingError) {
+            // Post-fetch runtime errors (rendering, filter population, etc.)
+            // Log loudly but do NOT show the misleading "network connection" alert.
+            console.error('Dashboard processing error after successful data load:', processingError);
+        }
     });
 
     // Initialize multi-select filter dropdowns
