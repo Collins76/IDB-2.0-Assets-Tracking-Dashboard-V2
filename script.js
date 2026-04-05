@@ -2778,7 +2778,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         || String(d.Feeder || '').toLowerCase() === q;
                 });
                 if (hit && !isNaN(parseFloat(hit.Latitude)) && !isNaN(parseFloat(hit.Longitude))) {
-                    map.flyTo([parseFloat(hit.Latitude), parseFloat(hit.Longitude)], 17, { duration: 1.4 });
+                    highlightSearchTarget(parseFloat(hit.Latitude), parseFloat(hit.Longitude));
                 } else {
                     input.classList.add('map-search-miss');
                     setTimeout(() => input.classList.remove('map-search-miss'), 700);
@@ -3101,6 +3101,49 @@ document.addEventListener('DOMContentLoaded', () => {
             mapEl.classList.remove('pulsing');
             pulseTimer = null;
         }, durationMs);
+    }
+
+    // Highlight a search hit for 20 seconds: drop a pulsating halo marker
+    // and oscillate the map zoom between a close-up and a wider view so
+    // the target breathes in and out.
+    let searchHighlightLayer = null;
+    let searchHighlightInterval = null;
+    let searchHighlightTimeout = null;
+    function highlightSearchTarget(lat, lon) {
+        if (!map) return;
+        // Clean up any prior highlight
+        if (searchHighlightLayer) { map.removeLayer(searchHighlightLayer); searchHighlightLayer = null; }
+        if (searchHighlightInterval) { clearInterval(searchHighlightInterval); searchHighlightInterval = null; }
+        if (searchHighlightTimeout) { clearTimeout(searchHighlightTimeout); searchHighlightTimeout = null; }
+
+        // Drop a pulsating halo marker at the target
+        const icon = L.divIcon({
+            className: 'search-highlight-marker',
+            html: '<div class="search-highlight-ring"></div><div class="search-highlight-ring delay-1"></div><div class="search-highlight-core"></div>',
+            iconSize: [60, 60],
+            iconAnchor: [30, 30]
+        });
+        searchHighlightLayer = L.marker([lat, lon], { icon, interactive: false, zIndexOffset: 1000 }).addTo(map);
+
+        // Initial fly to a close zoom
+        const zoomClose = 18;
+        const zoomFar = 15;
+        map.flyTo([lat, lon], zoomClose, { duration: 1.4 });
+
+        // Oscillate zoom in / out for the duration
+        const periodMs = 3400; // one full in→out cycle
+        let phase = 0;
+        searchHighlightInterval = setInterval(() => {
+            phase = 1 - phase;
+            map.flyTo([lat, lon], phase === 0 ? zoomClose : zoomFar, { duration: periodMs / 1000, easeLinearity: 0.3 });
+        }, periodMs);
+
+        // Stop after 20 seconds
+        searchHighlightTimeout = setTimeout(() => {
+            if (searchHighlightInterval) { clearInterval(searchHighlightInterval); searchHighlightInterval = null; }
+            if (searchHighlightLayer) { map.removeLayer(searchHighlightLayer); searchHighlightLayer = null; }
+            searchHighlightTimeout = null;
+        }, 20000);
     }
 
     // Load Lagos + UT boundary GeoJSONs once, draw styled polygons, and add labels.

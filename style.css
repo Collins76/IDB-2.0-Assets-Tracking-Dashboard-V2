@@ -2625,6 +2625,50 @@ header.exec-header img.exec-header-logo,
 }
 
 /* ============================================
+   SEARCH HIGHLIGHT MARKER (pulsating halo)
+   ============================================ */
+.search-highlight-marker {
+    pointer-events: none;
+    position: relative;
+}
+.search-highlight-marker .search-highlight-core {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 14px;
+    height: 14px;
+    margin: -7px 0 0 -7px;
+    border-radius: 50%;
+    background: #fbbf24;
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.85), 0 0 14px 4px rgba(251, 191, 36, 0.7);
+    animation: searchCorePulse 1s ease-in-out infinite;
+}
+.search-highlight-marker .search-highlight-ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border-radius: 50%;
+    border: 3px solid #fbbf24;
+    opacity: 0.9;
+    animation: searchRingExpand 1.8s ease-out infinite;
+}
+.search-highlight-marker .search-highlight-ring.delay-1 {
+    animation-delay: 0.9s;
+}
+@keyframes searchCorePulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.85), 0 0 14px 4px rgba(251, 191, 36, 0.7); }
+    50% { transform: scale(1.4); box-shadow: 0 0 0 4px rgba(251, 191, 36, 1), 0 0 22px 8px rgba(251, 191, 36, 0.95); }
+}
+@keyframes searchRingExpand {
+    0% { transform: scale(0.4); opacity: 1; border-width: 4px; }
+    80% { transform: scale(3.4); opacity: 0; border-width: 1px; }
+    100% { transform: scale(3.4); opacity: 0; border-width: 1px; }
+}
+
+/* ============================================
    CAPTIVATING ICON ANIMATIONS
    ============================================ */
 
