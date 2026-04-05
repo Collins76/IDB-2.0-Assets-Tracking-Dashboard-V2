@@ -2202,3 +2202,87 @@ header.exec-header img.exec-header-logo {
     text-align: right;
     word-break: break-word;
 }
+
+/* ============================================
+   UT POLYGON POPUP (aggregate area summary)
+   ============================================ */
+.ut-popup-wrapper .leaflet-popup-content-wrapper {
+    background: #0f1419;
+    color: #e2e8f0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    padding: 0;
+}
+
+.ut-popup-wrapper .leaflet-popup-content {
+    margin: 0;
+    line-height: 1.5;
+    width: auto !important;
+}
+
+.ut-popup-wrapper .leaflet-popup-tip {
+    background: #0f1419;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ut-popup-wrapper .leaflet-popup-close-button {
+    color: #94a3b8 !important;
+    font-size: 18px !important;
+    font-weight: 600 !important;
+    padding: 8px 10px 0 0 !important;
+    top: 2px !important;
+    right: 2px !important;
+}
+.ut-popup-wrapper .leaflet-popup-close-button:hover {
+    color: #fff !important;
+}
+
+.ut-popup {
+    padding: 14px 16px 14px;
+    min-width: 260px;
+    max-width: 340px;
+    font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif;
+    font-size: 12.5px;
+    color: #e2e8f0;
+}
+
+.ut-popup-header {
+    border-left: 3px solid #a855f7;
+    padding-left: 10px;
+    margin-bottom: 10px;
+}
+
+.ut-popup-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #f8fafc;
+    letter-spacing: 0.3px;
+}
+
+.ut-popup-subtitle {
+    font-size: 12px;
+    color: #cbd5e1;
+    margin-top: 2px;
+}
+
+.ut-popup-subtitle b {
+    color: #f8fafc;
+    font-weight: 700;
+}
+
+.ut-popup-body {
+    display: block;
+}
+
+.ut-popup-line {
+    color: #e2e8f0;
+    padding: 2px 0;
+    word-break: break-word;
+    line-height: 1.5;
+}
+
+.ut-popup-line b {
+    color: #f8fafc;
+    font-weight: 700;
+}
