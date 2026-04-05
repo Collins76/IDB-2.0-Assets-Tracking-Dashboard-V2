@@ -2781,13 +2781,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     fillOpacity: 0.8
                 });
 
+                const captureDate = d["Date/timestamp"] ? String(d["Date/timestamp"]).split(' ')[0] : "N/A";
                 const popupContent = `
-                    <div style="font-size: 0.9em; color: #333;">
+                    <div style="font-size: 0.9em; color: #333; line-height: 1.5;">
                         <b>Pole ID:</b> ${d["Lt PoleSLRN"] || d["LT Pole No"] || "N/A"}<br>
+                        <b>Business Unit:</b> ${d["Bussines Unit"] || "N/A"}<br>
+                        <b>Undertaking:</b> ${d["Undertaking"] || "N/A"}<br>
+                        <b>Feeder:</b> ${d.Feeder || "N/A"}<br>
                         <b>DT Name:</b> ${d["DT Name"] || "N/A"}<br>
-                        <b>Vendor:</b> ${d.Vendor_Name}<br>
-                        <b>Officer:</b> ${getDisplayName(d.User)}<br>
-                        <b>Coords:</b> ${lat.toFixed(5)}, ${lon.toFixed(5)}
+                        <b>Vendor:</b> ${d.Vendor_Name || "N/A"}<br>
+                        <b>User:</b> ${getDisplayName(d.User) || "N/A"}<br>
+                        <b>Date:</b> ${captureDate}
                     </div>
                 `;
                 marker.bindPopup(popupContent);
