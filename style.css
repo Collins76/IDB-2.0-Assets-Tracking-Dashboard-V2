@@ -1231,15 +1231,16 @@ footer {
     width: 100%;
 }
 
-.top-insight-card {
+.top-insights-row .top-insight-card {
     background: hsl(var(--card));
     border: 1px solid hsl(var(--border));
     border-radius: 8px;
     padding: 1.2rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box;
 }
 
-.top-insight-users {
+.top-insights-row .top-insight-users {
     flex: 1;
     display: flex;
     align-items: center;
@@ -1272,7 +1273,7 @@ footer {
     flex-shrink: 0;
 }
 
-.top-insight-completion {
+.top-insights-row .top-insight-completion {
     flex: 2;
     display: flex;
     flex-direction: column;
