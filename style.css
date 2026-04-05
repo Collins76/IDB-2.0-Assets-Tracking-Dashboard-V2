@@ -1366,11 +1366,15 @@ footer {
     min-width: 0;
 }
 
-.sidebar-brand-logo {
-    width: 18px;
-    height: 18px;
+.sidebar .sidebar-brand-logo,
+.sidebar-brand .sidebar-brand-logo {
+    width: 20px !important;
+    height: 20px !important;
+    max-width: 20px !important;
+    max-height: 20px !important;
     object-fit: contain;
     flex-shrink: 0;
+    display: inline-block;
 }
 
 .sidebar-brand-title {
