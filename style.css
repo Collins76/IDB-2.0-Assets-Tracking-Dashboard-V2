@@ -1358,33 +1358,14 @@ footer {
     justify-content: space-between;
 }
 
-.sidebar-brand {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding-left: 1rem;
-    min-width: 0;
-}
-
-.sidebar .sidebar-brand-logo,
-.sidebar-brand .sidebar-brand-logo {
-    width: 20px !important;
-    height: 20px !important;
-    max-width: 20px !important;
-    max-height: 20px !important;
+.exec-header .exec-header-logo {
+    width: 44px !important;
+    height: 44px !important;
+    max-width: 44px !important;
+    max-height: 44px !important;
     object-fit: contain;
     flex-shrink: 0;
     display: inline-block;
-}
-
-.sidebar-brand-title {
-    color: hsl(var(--foreground));
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .sidebar-close-btn {
