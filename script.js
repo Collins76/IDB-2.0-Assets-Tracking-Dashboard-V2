@@ -2794,22 +2794,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 0);
     }
 
-    // Compute the LatLngBounds of all data points matching the currently
-    // selected Feeder (respecting upstream BU / UT) and fly the map there.
-    function zoomToFeederSelection() {
+    // Compute the LatLngBounds of all data points matching the current
+    // cascaded selection (BU → UT → Feeder → DT) and fly the map there.
+    // Called whenever the user changes any of those four filter groups.
+    function zoomToCurrentSelection(triggerFilterId) {
         if (!map || !globalData) return;
-        const feederSel = multiSelects.feederFilter?.selectedValues;
-        if (!feederSel || feederSel.size === 0) return; // Nothing to zoom to
 
-        const buSel = multiSelects.buFilter?.selectedValues;
-        const utSel = multiSelects.utFilter?.selectedValues;
+        // The filter that was just changed must have at least one selection
+        // for us to zoom — otherwise the user effectively cleared it.
+        const triggerSel = multiSelects[triggerFilterId]?.selectedValues;
+        if (!triggerSel || triggerSel.size === 0) return;
+
+        const buSel     = multiSelects.buFilter?.selectedValues;
+        const utSel     = multiSelects.utFilter?.selectedValues;
+        const feederSel = multiSelects.feederFilter?.selectedValues;
+        const dtSel     = multiSelects.dtFilter?.selectedValues;
         const applies = (set, v) => !set || set.size === 0 || set.has(v);
 
         const latlngs = [];
         globalData.forEach(d => {
-            if (!applies(buSel, d["Bussines Unit"])) return;
-            if (!applies(utSel, d["Undertaking"])) return;
-            if (!applies(feederSel, d["Feeder"])) return;
+            if (!applies(buSel,     d["Bussines Unit"])) return;
+            if (!applies(utSel,     d["Undertaking"]))   return;
+            if (!applies(feederSel, d["Feeder"]))        return;
+            if (!applies(dtSel,     d["DT Name"]))       return;
             const lat = parseFloat(d.Latitude), lon = parseFloat(d.Longitude);
             if (!isNaN(lat) && !isNaN(lon)) latlngs.push([lat, lon]);
         });
@@ -2817,9 +2824,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (latlngs.length === 0) return;
         const bounds = L.latLngBounds(latlngs);
         try {
-            map.flyToBounds(bounds, { duration: 1.6, padding: [40, 40], maxZoom: 16 });
+            map.flyToBounds(bounds, { duration: 1.6, padding: [40, 40], maxZoom: 17 });
         } catch (e) {
-            map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+            map.fitBounds(bounds, { padding: [40, 40], maxZoom: 17 });
         }
     }
 
@@ -2945,9 +2952,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (typeof ms.refresh === 'function') ms.refresh();
                         if (typeof ms.onChange === 'function') ms.onChange();
                         buildPanel();
-                        // When the user narrows by Feeder, zoom the map to the
-                        // selected feeder(s) coverage area.
-                        if (filterId === 'feederFilter') zoomToFeederSelection();
+                        // When the user narrows by BU, UT, Feeder, or DT,
+                        // zoom the map to the coverage area of the resulting
+                        // cascaded selection.
+                        if (['buFilter', 'utFilter', 'feederFilter', 'dtFilter'].includes(filterId)) {
+                            zoomToCurrentSelection(filterId);
+                        }
                     };
 
                     group.querySelector('.map-filter-sel-all').addEventListener('click', () => {
