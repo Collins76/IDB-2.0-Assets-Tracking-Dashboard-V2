@@ -36,6 +36,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let markersLayer = null;
     let boundaryLayer = null;       // Lagos + UT polygon layers
     let utLabelLayer = null;        // UT name labels (permanent)
+    let htFeederLayer = null;       // Shomolu HT feeder polylines
+    let issLayer = null;            // Injection Substation point markers
+    let tcnLayer = null;            // TCN transmission station markers
     let boundariesLoaded = false;   // one-time load guard
     let utBoundsCache = null;       // UT-only bounds (fallback when no data)
     let mapInitiallyFitted = false; // first-render fit guard
@@ -2977,8 +2980,13 @@ document.addEventListener('DOMContentLoaded', () => {
             addMapFilterControl();
 
             // Layer order: boundaries (bottom) → labels → data markers (top)
+            // Layer order (bottom → top): polygons → HT lines → UT labels
+            //                              → ISS markers → TCN markers → data point markers
             boundaryLayer = L.layerGroup().addTo(map);
+            htFeederLayer = L.layerGroup().addTo(map);
             utLabelLayer = L.layerGroup().addTo(map);
+            issLayer = L.layerGroup().addTo(map);
+            tcnLayer = L.layerGroup().addTo(map);
             markersLayer = L.layerGroup().addTo(map);
 
             // Hide UT text labels at far-out zooms to avoid clutter
@@ -3151,9 +3159,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (boundariesLoaded) return;
         try {
             const bust = '?v=' + Date.now();
-            const [lagosData, utData] = await Promise.all([
+            const [lagosData, utData, htData, issData, tcnData] = await Promise.all([
                 fetch('./data/lagos_boundary.geojson' + bust).then(r => r.json()),
-                fetch('./data/ut_boundaries.geojson' + bust).then(r => r.json())
+                fetch('./data/ut_boundaries.geojson' + bust).then(r => r.json()),
+                fetch('./data/shomolu_ht_feeders.geojson' + bust).then(r => r.json()),
+                fetch('./data/iss_substations.geojson' + bust).then(r => r.json()),
+                fetch('./data/tcn_stations.geojson' + bust).then(r => r.json())
             ]);
 
             // Lagos outer boundary — bold RED outline, fully visible, no fill
@@ -3264,6 +3275,128 @@ document.addEventListener('DOMContentLoaded', () => {
                     }).addTo(utLabelLayer);
                 }
             }).addTo(boundaryLayer);
+
+            // ═══════════════════════════════════════════════════════════════
+            // HT Feeder Lines (Shomolu) — thick orange dashed polylines
+            // Rendered as two stacked layers: a wider glow underneath + a
+            // bright dashed line on top, so the feeders read at all zooms.
+            // ═══════════════════════════════════════════════════════════════
+            L.geoJSON(htData, {
+                style: {
+                    color: '#f59e0b',
+                    weight: 9,
+                    opacity: 0.18,
+                    lineCap: 'round',
+                    lineJoin: 'round'
+                },
+                interactive: false
+            }).addTo(htFeederLayer);
+
+            const htTopGeo = L.geoJSON(htData, {
+                style: {
+                    color: '#fb923c',
+                    weight: 3,
+                    opacity: 0.95,
+                    dashArray: '10, 6',
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                    className: 'ht-feeder-line'
+                },
+                onEachFeature: (feat, layer) => {
+                    const name = feat.properties.Name || 'HT Feeder';
+                    layer.bindTooltip(name, {
+                        sticky: true,
+                        direction: 'top',
+                        className: 'ht-feeder-tooltip'
+                    });
+                    layer.bindPopup(`
+                        <div class="asset-popup">
+                            <div class="asset-popup-title">${name}</div>
+                            <div class="asset-popup-subtitle">HT FEEDER LINE · SHOMOLU</div>
+                            <div class="asset-popup-divider"></div>
+                            <div class="asset-popup-grid">
+                                <div class="asset-popup-label">Type</div>
+                                <div class="asset-popup-value">11 kV HT Feeder</div>
+                                <div class="asset-popup-label">Business Unit</div>
+                                <div class="asset-popup-value">SHOMOLU</div>
+                            </div>
+                        </div>
+                    `, { className: 'asset-popup-wrapper', maxWidth: 300, minWidth: 240 });
+                    layer.on('mouseover', e => e.target.setStyle({ weight: 5, opacity: 1 }));
+                    layer.on('mouseout', e => htTopGeo.resetStyle(e.target));
+                }
+            }).addTo(htFeederLayer);
+
+            // ═══════════════════════════════════════════════════════════════
+            // ISS — Injection Substations, violet diamond markers
+            // ═══════════════════════════════════════════════════════════════
+            issData.features.forEach(f => {
+                if (!f.geometry || f.geometry.type !== 'Point') return;
+                const [lon, lat] = f.geometry.coordinates;
+                const name = f.properties.Name || 'Injection Substation';
+                const marker = L.marker([lat, lon], {
+                    icon: L.divIcon({
+                        className: 'iss-marker-wrapper',
+                        html: '<div class="iss-marker"><span class="iss-marker-inner"></span></div>',
+                        iconSize: [18, 18],
+                        iconAnchor: [9, 9]
+                    }),
+                    zIndexOffset: 500
+                });
+                marker.bindTooltip(name, { direction: 'top', offset: [0, -6], className: 'iss-tooltip' });
+                marker.bindPopup(`
+                    <div class="asset-popup">
+                        <div class="asset-popup-title">${name}</div>
+                        <div class="asset-popup-subtitle">INJECTION SUBSTATION</div>
+                        <div class="asset-popup-divider"></div>
+                        <div class="asset-popup-grid">
+                            <div class="asset-popup-label">Asset Type</div>
+                            <div class="asset-popup-value">ISS (11/33 kV)</div>
+                            <div class="asset-popup-label">Coordinates</div>
+                            <div class="asset-popup-value">${lat.toFixed(5)}, ${lon.toFixed(5)}</div>
+                        </div>
+                    </div>
+                `, { className: 'asset-popup-wrapper', maxWidth: 300, minWidth: 240 });
+                issLayer.addLayer(marker);
+            });
+
+            // ═══════════════════════════════════════════════════════════════
+            // TCN — Transmission Company stations, gold hexagon markers
+            // (the biggest, brightest markers — these are the highest-order
+            // nodes in the network, so they must read at every zoom level)
+            // ═══════════════════════════════════════════════════════════════
+            tcnData.features.forEach(f => {
+                if (!f.geometry || f.geometry.type !== 'Point') return;
+                const [lon, lat] = f.geometry.coordinates;
+                const name = f.properties.Name || 'TCN Station';
+                const shortName = name.split(/[,\s]/)[0]; // first token for compact label
+                const marker = L.marker([lat, lon], {
+                    icon: L.divIcon({
+                        className: 'tcn-marker-wrapper',
+                        html: `<div class="tcn-marker"><span class="tcn-marker-core">T</span></div><div class="tcn-marker-label">${shortName}</div>`,
+                        iconSize: [26, 26],
+                        iconAnchor: [13, 13]
+                    }),
+                    zIndexOffset: 800
+                });
+                marker.bindTooltip(name, { direction: 'top', offset: [0, -12], className: 'tcn-tooltip' });
+                marker.bindPopup(`
+                    <div class="asset-popup">
+                        <div class="asset-popup-title">${name}</div>
+                        <div class="asset-popup-subtitle">TCN TRANSMISSION STATION</div>
+                        <div class="asset-popup-divider"></div>
+                        <div class="asset-popup-grid">
+                            <div class="asset-popup-label">Asset Type</div>
+                            <div class="asset-popup-value">132/33 kV TS</div>
+                            <div class="asset-popup-label">Operator</div>
+                            <div class="asset-popup-value">TCN</div>
+                            <div class="asset-popup-label">Coordinates</div>
+                            <div class="asset-popup-value">${lat.toFixed(5)}, ${lon.toFixed(5)}</div>
+                        </div>
+                    </div>
+                `, { className: 'asset-popup-wrapper', maxWidth: 300, minWidth: 240 });
+                tcnLayer.addLayer(marker);
+            });
 
             // Cached fallback for the empty-filter case (first render uses data bounds).
             utBoundsCache = utGeo.getBounds();
