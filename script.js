@@ -524,13 +524,17 @@ document.addEventListener('DOMContentLoaded', () => {
         )
     ])
     .catch(error => {
-        // Only true network / fetch failures land here
-        console.error('Error fetching dashboard data from all sources:', error);
-        alert('Failed to load dashboard data automatically. Please check network connection.');
-        throw error;
+        // True network / fetch failures land here — log silently, never
+        // show a blocking alert. If data truly failed, the empty dashboard
+        // is the clearest signal; developers can inspect the console.
+        console.error('[Dashboard] Error fetching data from all sources:', error);
+        return [null, null];
     })
     .then(([fieldData, boq]) => {
-        if (!fieldData || !boq) return;
+        if (!fieldData || !boq) {
+            console.warn('[Dashboard] Skipping processing — data not available.');
+            return;
+        }
         try {
             // Process Field Data
             fieldData.forEach(item => {
@@ -2748,15 +2752,12 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             map.on('zoomend', updateLabelVisibility);
 
-            // One-time: load boundaries, draw them, then zoom to full Lagos + UT extent
+            // Load boundary overlays once, then re-run the render so markers
+            // exist at the moment we compute data bounds / trigger the pulse.
             loadBoundaries().then(() => {
                 updateLabelVisibility();
-                if (boundaryFullBounds && boundaryFullBounds.isValid()) {
-                    map.fitBounds(boundaryFullBounds, { padding: [18, 18] });
-                    mapInitiallyFitted = true;
-                }
-                // Leaflet sometimes mis-sizes when its container was hidden at init
                 setTimeout(() => map.invalidateSize(), 50);
+                renderMap(); // second pass now that boundaries are in place
             });
         }
 
@@ -2764,6 +2765,7 @@ document.addEventListener('DOMContentLoaded', () => {
         markersLayer.clearLayers();
         let count = 0;
         const limit = 3000; // Performance limit
+        const dataLatLngs = [];
 
         filteredData.forEach(d => {
             if (count > limit) return;
@@ -2783,8 +2785,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     color: '#fff',
                     weight: 1,
                     opacity: 1,
-                    fillOpacity: 0.8
+                    fillOpacity: 0.85,
+                    className: 'data-point-marker' // enables CSS pulse animation
                 });
+                dataLatLngs.push([lat, lon]);
 
                 const captureDate = d["Date/timestamp"] ? String(d["Date/timestamp"]).split(' ')[0] : "N/A";
                 const popupContent = `
@@ -2805,14 +2809,50 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Always keep the map framed to the full Lagos + UT extent on the initial render.
-        // Subsequent filter re-renders keep whatever the user has panned/zoomed to.
-        if (!mapInitiallyFitted && boundaryFullBounds && boundaryFullBounds.isValid()) {
+        // Frame the map to where the data points actually are.
+        // Fallback to the UT extent only if the current filter yields zero points.
+        const dataBounds = dataLatLngs.length > 0 ? L.latLngBounds(dataLatLngs) : null;
+        const fitTarget = (dataBounds && dataBounds.isValid()) ? dataBounds : utBoundsCache;
+
+        if (!mapInitiallyFitted && fitTarget && fitTarget.isValid()) {
             try {
-                map.fitBounds(boundaryFullBounds, { padding: [18, 18] });
+                // flyToBounds naturally creates a zoom-out → pan → zoom-in arc,
+                // giving the "zoom in and zoom out" animated reveal
+                map.flyToBounds(fitTarget, {
+                    duration: 2.8,
+                    easeLinearity: 0.25,
+                    padding: [30, 30],
+                    maxZoom: 15
+                });
                 mapInitiallyFitted = true;
-            } catch (e) { console.warn("Boundary fit failed", e); }
+                startMarkerPulse(20000);
+            } catch (e) {
+                console.warn("flyToBounds failed", e);
+                map.fitBounds(fitTarget, { padding: [30, 30], maxZoom: 15 });
+                mapInitiallyFitted = true;
+                startMarkerPulse(20000);
+            }
+        } else if (mapInitiallyFitted && count > 0) {
+            // Filter change after the reveal — re-pulse, don't re-zoom
+            startMarkerPulse(20000);
         }
+    }
+
+    // Pulse the data point markers for `durationMs`, then stop automatically.
+    // Implemented as a CSS class toggle on #map so the scale animation runs on
+    // the GPU and handles 3k markers without jank. A JS timer clears the class
+    // when the duration expires.
+    function startMarkerPulse(durationMs) {
+        const mapEl = document.getElementById('map');
+        if (!mapEl) return;
+        if (pulseTimer) clearTimeout(pulseTimer);
+        mapEl.classList.remove('pulsing');
+        void mapEl.offsetWidth; // force reflow to restart the keyframe timeline
+        mapEl.classList.add('pulsing');
+        pulseTimer = setTimeout(() => {
+            mapEl.classList.remove('pulsing');
+            pulseTimer = null;
+        }, durationMs);
     }
 
     // Load Lagos + UT boundary GeoJSONs once, draw styled polygons, and add labels.
