@@ -2829,15 +2829,65 @@ document.addEventListener('DOMContentLoaded', () => {
                 { key: 'user',   label: 'User',          filterId: 'userFilter' }
             ];
 
+            // Map each filter to the underlying data field so we can cascade:
+            // BU → UT → Feeder → DT → Vendor → User. Each group's options
+            // are computed from globalData filtered by all upstream selections,
+            // giving true cascading dropdowns.
+            const fieldFor = {
+                buFilter:     'Bussines Unit',
+                utFilter:     'Undertaking',
+                feederFilter: 'Feeder',
+                dtFilter:     'DT Name',
+                vendorFilter: 'Vendor_Name',
+                userFilter:   'User'
+            };
+            const cascadeOrder = ['buFilter', 'utFilter', 'feederFilter', 'dtFilter', 'vendorFilter', 'userFilter'];
+
+            const applies = (set, v) => !set || set.size === 0 || set.has(v);
+
+            // Returns the sorted unique values for `targetFilterId`, filtered by
+            // all upstream selections in the cascade.
+            const optionsForFilter = (targetFilterId) => {
+                const upstreamFilters = cascadeOrder.slice(0, cascadeOrder.indexOf(targetFilterId));
+                const out = new Set();
+                (globalData || []).forEach(d => {
+                    for (const upId of upstreamFilters) {
+                        const ms = multiSelects[upId];
+                        const fld = fieldFor[upId];
+                        if (!applies(ms?.selectedValues, d[fld])) return;
+                    }
+                    const v = d[fieldFor[targetFilterId]];
+                    if (v !== undefined && v !== null && v !== '') out.add(String(v));
+                });
+                return [...out].sort((a, b) => a.localeCompare(b));
+            };
+
+            // When upstream changes, drop any downstream selectedValues that
+            // are no longer valid under the new cascade.
+            const pruneDownstream = (changedFilterId) => {
+                const idx = cascadeOrder.indexOf(changedFilterId);
+                for (let i = idx + 1; i < cascadeOrder.length; i++) {
+                    const ms = multiSelects[cascadeOrder[i]];
+                    if (!ms) continue;
+                    const validSet = new Set(optionsForFilter(cascadeOrder[i]));
+                    let changed = false;
+                    [...ms.selectedValues].forEach(v => {
+                        if (!validSet.has(v)) { ms.selectedValues.delete(v); changed = true; }
+                    });
+                    if (changed && typeof ms.refresh === 'function') ms.refresh();
+                }
+            };
+
             const buildPanel = () => {
                 panel.innerHTML = sourceMap.map(src => {
                     const ms = multiSelects[src.filterId];
                     if (!ms) return '';
-                    const options = [...ms.selectEl.options].slice(1); // skip the "All" placeholder
-                    const checks = options.map(o => {
-                        const safe = String(o.value).replace(/"/g, '&quot;');
-                        const checked = ms.selectedValues.has(o.value) ? 'checked' : '';
-                        return `<label class="map-filter-check"><input type="checkbox" data-filter="${src.filterId}" value="${safe}" ${checked}><span>${o.textContent}</span></label>`;
+                    const values = optionsForFilter(src.filterId);
+                    const checks = values.map(v => {
+                        const safe = String(v).replace(/"/g, '&quot;');
+                        const checked = ms.selectedValues.has(v) ? 'checked' : '';
+                        const label = src.filterId === 'userFilter' ? getDisplayName(v) : v;
+                        return `<label class="map-filter-check"><input type="checkbox" data-filter="${src.filterId}" value="${safe}" ${checked}><span>${label}</span></label>`;
                     }).join('');
                     return `
                         <div class="map-filter-group" data-filter="${src.filterId}">
@@ -2858,32 +2908,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     const ms = multiSelects[filterId];
                     if (!ms) return;
 
-                    const syncToSidebar = () => {
-                        // Rebuild the sidebar MultiSelect UI so its checkboxes
-                        // reflect the new selectedValues, then fire onChange.
+                    const syncAfterChange = () => {
+                        pruneDownstream(filterId);
                         if (typeof ms.refresh === 'function') ms.refresh();
                         if (typeof ms.onChange === 'function') ms.onChange();
+                        buildPanel();
                     };
 
                     group.querySelector('.map-filter-sel-all').addEventListener('click', () => {
-                        // Check every box: add every non-placeholder option.
-                        [...ms.selectEl.options].slice(1).forEach(o => ms.selectedValues.add(o.value));
-                        syncToSidebar();
-                        buildPanel();
+                        // Check every currently-available (cascaded) option.
+                        optionsForFilter(filterId).forEach(v => ms.selectedValues.add(v));
+                        syncAfterChange();
                     });
 
                     group.querySelector('.map-filter-sel-none').addEventListener('click', () => {
-                        // Uncheck every box: empty set = show all in this pipeline.
                         ms.selectedValues.clear();
-                        syncToSidebar();
-                        buildPanel();
+                        syncAfterChange();
                     });
 
                     group.querySelectorAll('input[type="checkbox"]').forEach(cb => {
                         cb.addEventListener('change', () => {
                             if (cb.checked) ms.selectedValues.add(cb.value);
                             else ms.selectedValues.delete(cb.value);
-                            syncToSidebar();
+                            syncAfterChange();
                         });
                     });
                 });
