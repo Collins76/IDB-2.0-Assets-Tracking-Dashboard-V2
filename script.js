@@ -2794,6 +2794,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 0);
     }
 
+    // Compute the LatLngBounds of all data points matching the currently
+    // selected Feeder (respecting upstream BU / UT) and fly the map there.
+    function zoomToFeederSelection() {
+        if (!map || !globalData) return;
+        const feederSel = multiSelects.feederFilter?.selectedValues;
+        if (!feederSel || feederSel.size === 0) return; // Nothing to zoom to
+
+        const buSel = multiSelects.buFilter?.selectedValues;
+        const utSel = multiSelects.utFilter?.selectedValues;
+        const applies = (set, v) => !set || set.size === 0 || set.has(v);
+
+        const latlngs = [];
+        globalData.forEach(d => {
+            if (!applies(buSel, d["Bussines Unit"])) return;
+            if (!applies(utSel, d["Undertaking"])) return;
+            if (!applies(feederSel, d["Feeder"])) return;
+            const lat = parseFloat(d.Latitude), lon = parseFloat(d.Longitude);
+            if (!isNaN(lat) && !isNaN(lon)) latlngs.push([lat, lon]);
+        });
+
+        if (latlngs.length === 0) return;
+        const bounds = L.latLngBounds(latlngs);
+        try {
+            map.flyToBounds(bounds, { duration: 1.6, padding: [40, 40], maxZoom: 16 });
+        } catch (e) {
+            map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+        }
+    }
+
     // Map control: collapsible filter panel mirroring the sidebar filters
     function addMapFilterControl() {
         const FilterControl = L.Control.extend({
@@ -2916,6 +2945,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (typeof ms.refresh === 'function') ms.refresh();
                         if (typeof ms.onChange === 'function') ms.onChange();
                         buildPanel();
+                        // When the user narrows by Feeder, zoom the map to the
+                        // selected feeder(s) coverage area.
+                        if (filterId === 'feederFilter') zoomToFeederSelection();
                     };
 
                     group.querySelector('.map-filter-sel-all').addEventListener('click', () => {
