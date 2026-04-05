@@ -2729,16 +2729,203 @@ document.addEventListener('DOMContentLoaded', () => {
         Plotly.newPlot('feederChart', [trace], layout, config);
     }
 
+    // Map control: search bar with datalist intellisense over Pole IDs / DT names / Feeders
+    function addMapSearchControl() {
+        const SearchControl = L.Control.extend({
+            options: { position: 'topleft' },
+            onAdd: function () {
+                const container = L.DomUtil.create('div', 'map-search-control leaflet-bar');
+                container.innerHTML = `
+                    <input type="text" id="mapSearchInput" list="mapSearchSuggestions" placeholder="Search pole / DT / feeder…" autocomplete="off">
+                    <datalist id="mapSearchSuggestions"></datalist>
+                    <button type="button" id="mapSearchClear" title="Clear">&times;</button>
+                `;
+                L.DomEvent.disableClickPropagation(container);
+                L.DomEvent.disableScrollPropagation(container);
+                return container;
+            }
+        });
+        new SearchControl().addTo(map);
+
+        // Wire up search behavior after DOM exists
+        setTimeout(() => {
+            const input = document.getElementById('mapSearchInput');
+            const clearBtn = document.getElementById('mapSearchClear');
+            const dataList = document.getElementById('mapSearchSuggestions');
+            if (!input || !dataList) return;
+
+            // Populate suggestions from current filteredData
+            const populate = () => {
+                const set = new Set();
+                (filteredData || []).forEach(d => {
+                    if (d["Lt PoleSLRN"]) set.add(String(d["Lt PoleSLRN"]));
+                    if (d["LT Pole No"]) set.add(String(d["LT Pole No"]));
+                    if (d["DT Name"]) set.add(String(d["DT Name"]));
+                    if (d.Feeder) set.add(String(d.Feeder));
+                });
+                dataList.innerHTML = [...set].slice(0, 500).map(v => `<option value="${v.replace(/"/g, '&quot;')}">`).join('');
+            };
+            populate();
+            window._refreshMapSearchSuggestions = populate;
+
+            const runSearch = () => {
+                const q = (input.value || '').trim().toLowerCase();
+                if (!q) return;
+                const hit = (filteredData || []).find(d => {
+                    return String(d["Lt PoleSLRN"] || '').toLowerCase() === q
+                        || String(d["LT Pole No"] || '').toLowerCase() === q
+                        || String(d["DT Name"] || '').toLowerCase() === q
+                        || String(d.Feeder || '').toLowerCase() === q;
+                });
+                if (hit && !isNaN(parseFloat(hit.Latitude)) && !isNaN(parseFloat(hit.Longitude))) {
+                    map.flyTo([parseFloat(hit.Latitude), parseFloat(hit.Longitude)], 17, { duration: 1.4 });
+                } else {
+                    input.classList.add('map-search-miss');
+                    setTimeout(() => input.classList.remove('map-search-miss'), 700);
+                }
+            };
+
+            input.addEventListener('change', runSearch);
+            input.addEventListener('keydown', e => { if (e.key === 'Enter') runSearch(); });
+            clearBtn.addEventListener('click', () => { input.value = ''; input.focus(); });
+        }, 0);
+    }
+
+    // Map control: collapsible filter panel mirroring the sidebar filters
+    function addMapFilterControl() {
+        const FilterControl = L.Control.extend({
+            options: { position: 'topleft' },
+            onAdd: function () {
+                const container = L.DomUtil.create('div', 'map-filter-control leaflet-bar');
+                container.innerHTML = `
+                    <button type="button" id="mapFilterToggle" class="map-filter-toggle" title="Map filters">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                        <span>Filters</span>
+                    </button>
+                    <div class="map-filter-panel" id="mapFilterPanel" style="display:none;"></div>
+                `;
+                L.DomEvent.disableClickPropagation(container);
+                L.DomEvent.disableScrollPropagation(container);
+                return container;
+            }
+        });
+        new FilterControl().addTo(map);
+
+        setTimeout(() => {
+            const toggle = document.getElementById('mapFilterToggle');
+            const panel = document.getElementById('mapFilterPanel');
+            if (!toggle || !panel) return;
+
+            // Sources: reuse the existing dashboard <select> elements so
+            // changes in the map control propagate through the same pipeline.
+            const sourceMap = [
+                { key: 'bu', label: 'Business Unit', selectId: 'buFilter' },
+                { key: 'ut', label: 'Undertaking', selectId: 'utFilter' },
+                { key: 'feeder', label: 'Feeder', selectId: 'feederFilter' },
+                { key: 'dt', label: 'DT Name', selectId: 'dtFilter' },
+                { key: 'vendor', label: 'Vendor', selectId: 'vendorFilter' },
+                { key: 'user', label: 'User', selectId: 'userFilter' }
+            ];
+
+            const buildPanel = () => {
+                panel.innerHTML = sourceMap.map(src => {
+                    const sel = document.getElementById(src.selectId);
+                    if (!sel) return '';
+                    const opts = [...sel.options].filter(o => o.value && o.value !== 'All');
+                    const checks = opts.map(o =>
+                        `<label class="map-filter-check"><input type="checkbox" data-group="${src.key}" data-select="${src.selectId}" value="${o.value}" ${sel.value === o.value ? 'checked' : ''}>${o.textContent}</label>`
+                    ).join('');
+                    return `
+                        <div class="map-filter-group" data-group="${src.key}">
+                            <div class="map-filter-group-head">
+                                <span>${src.label}</span>
+                                <span class="map-filter-actions">
+                                    <button type="button" class="map-filter-sel-all">All</button>
+                                    <button type="button" class="map-filter-sel-none">None</button>
+                                </span>
+                            </div>
+                            <div class="map-filter-options">${checks || '<em>(no options)</em>'}</div>
+                        </div>
+                    `;
+                }).join('');
+
+                // Wire up select all / none within each group (note: underlying
+                // selects are single-select, so "All" = reset to 'All' and
+                // "None" = first non-'All' option; behaviour mirrors the sidebar)
+                panel.querySelectorAll('.map-filter-group').forEach(group => {
+                    const selectId = group.querySelector('input[type="checkbox"]')?.dataset.select;
+                    if (!selectId) return;
+                    const sel = document.getElementById(selectId);
+
+                    group.querySelector('.map-filter-sel-all')?.addEventListener('click', () => {
+                        sel.value = 'All';
+                        sel.dispatchEvent(new Event('change', { bubbles: true }));
+                        buildPanel();
+                    });
+                    group.querySelector('.map-filter-sel-none')?.addEventListener('click', () => {
+                        const firstOpt = [...sel.options].find(o => o.value && o.value !== 'All');
+                        if (firstOpt) {
+                            sel.value = firstOpt.value;
+                            sel.dispatchEvent(new Event('change', { bubbles: true }));
+                            buildPanel();
+                        }
+                    });
+
+                    group.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                        cb.addEventListener('change', () => {
+                            // Single-select underneath: last checked value wins
+                            if (cb.checked) {
+                                sel.value = cb.value;
+                                sel.dispatchEvent(new Event('change', { bubbles: true }));
+                            } else {
+                                sel.value = 'All';
+                                sel.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                            buildPanel();
+                        });
+                    });
+                });
+            };
+
+            toggle.addEventListener('click', () => {
+                const showing = panel.style.display !== 'none';
+                panel.style.display = showing ? 'none' : 'block';
+                if (!showing) buildPanel();
+            });
+        }, 0);
+    }
+
     // 7. Render Map (Leaflet)
     function renderMap() {
         if (!map) {
             // Init map — default view centers on Lagos; boundary fit will take over once loaded
             map = L.map('map', { zoomControl: true }).setView([6.55, 3.45], 10);
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            // Base layers — OSM, Google Satellite, Google Hybrid
+            const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; OpenStreetMap contributors',
                 maxZoom: 19
-            }).addTo(map);
+            });
+            const satLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+                subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+                attribution: '&copy; Google',
+                maxZoom: 20
+            });
+            const hybridLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+                subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+                attribution: '&copy; Google',
+                maxZoom: 20
+            });
+            osmLayer.addTo(map);
+            L.control.layers(
+                { 'OpenStreetMap': osmLayer, 'Satellite': satLayer, 'Hybrid': hybridLayer },
+                null,
+                { position: 'topright', collapsed: false }
+            ).addTo(map);
+
+            // Add search + filter controls (built once, data populated on every render)
+            addMapSearchControl();
+            addMapFilterControl();
 
             // Layer order: boundaries (bottom) → labels → data markers (top)
             boundaryLayer = L.layerGroup().addTo(map);
@@ -2820,6 +3007,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 count++;
             }
         });
+
+        // Refresh search suggestions whenever data is re-rendered
+        if (typeof window._refreshMapSearchSuggestions === 'function') {
+            window._refreshMapSearchSuggestions();
+        }
 
         // Frame the map to a wide Lagos-State regional view on first render,
         // so the user can see the whole operating area (Lagos + neighbouring

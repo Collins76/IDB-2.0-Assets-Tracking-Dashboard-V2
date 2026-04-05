@@ -2443,3 +2443,287 @@ header.exec-header img.exec-header-logo,
     color: #f8fafc;
     font-weight: 700;
 }
+
+/* ============================================
+   MAP CONTROLS — search, filter, layer switcher
+   ============================================ */
+
+/* Layer switcher polish */
+.leaflet-control-layers {
+    background: rgba(15, 20, 25, 0.92) !important;
+    color: #e2e8f0 !important;
+    border: 1px solid rgba(34, 211, 238, 0.3) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+    padding: 8px 12px !important;
+    backdrop-filter: blur(8px);
+    font-weight: 600;
+    font-size: 12px;
+}
+.leaflet-control-layers label {
+    color: #e2e8f0 !important;
+    cursor: pointer;
+    padding: 3px 0;
+}
+.leaflet-control-layers label:hover {
+    color: #22d3ee !important;
+}
+.leaflet-control-layers input[type="radio"],
+.leaflet-control-layers input[type="checkbox"] {
+    accent-color: #22d3ee;
+    margin-right: 6px;
+}
+
+/* Search control */
+.map-search-control {
+    background: rgba(15, 20, 25, 0.92) !important;
+    border: 1px solid rgba(34, 211, 238, 0.3) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+    padding: 4px !important;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    backdrop-filter: blur(8px);
+    margin-bottom: 8px !important;
+}
+.map-search-control input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #e2e8f0;
+    font-size: 12.5px;
+    padding: 6px 8px;
+    width: 220px;
+    font-family: inherit;
+}
+.map-search-control input::placeholder {
+    color: #64748b;
+}
+.map-search-control input.map-search-miss {
+    animation: mapSearchShake 0.5s;
+    color: #ef4444;
+}
+@keyframes mapSearchShake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-4px); }
+    40%, 80% { transform: translateX(4px); }
+}
+.map-search-control button {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0 8px;
+    line-height: 1;
+}
+.map-search-control button:hover {
+    color: #22d3ee;
+}
+
+/* Filter control */
+.map-filter-control {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    margin-bottom: 8px !important;
+}
+.map-filter-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(15, 20, 25, 0.92);
+    color: #e2e8f0;
+    border: 1px solid rgba(34, 211, 238, 0.3);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    transition: all 0.2s ease;
+}
+.map-filter-toggle:hover {
+    color: #22d3ee;
+    border-color: #22d3ee;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 28px rgba(34, 211, 238, 0.25);
+}
+.map-filter-panel {
+    margin-top: 6px;
+    background: rgba(15, 20, 25, 0.96);
+    border: 1px solid rgba(34, 211, 238, 0.3);
+    border-radius: 8px;
+    padding: 10px;
+    max-height: 60vh;
+    overflow-y: auto;
+    width: 270px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+}
+.map-filter-group {
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.map-filter-group:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+.map-filter-group-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #22d3ee;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+}
+.map-filter-actions {
+    display: flex;
+    gap: 4px;
+}
+.map-filter-actions button {
+    background: rgba(34, 211, 238, 0.1);
+    color: #22d3ee;
+    border: 1px solid rgba(34, 211, 238, 0.3);
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    cursor: pointer;
+    text-transform: uppercase;
+}
+.map-filter-actions button:hover {
+    background: #22d3ee;
+    color: #0f1419;
+}
+.map-filter-options {
+    max-height: 120px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+.map-filter-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #cbd5e1;
+    font-size: 11.5px;
+    padding: 3px 2px;
+    cursor: pointer;
+}
+.map-filter-check:hover {
+    color: #f1f5f9;
+}
+.map-filter-check input[type="checkbox"] {
+    accent-color: #22d3ee;
+    flex-shrink: 0;
+}
+
+/* ============================================
+   CAPTIVATING ICON ANIMATIONS
+   ============================================ */
+
+/* Gentle floating/pulse for sidebar emoji icons */
+.sidebar-nav .nav-link {
+    position: relative;
+    transition: transform 0.25s ease, color 0.25s ease;
+}
+.sidebar-nav .nav-link:hover {
+    transform: translateX(4px);
+}
+.sidebar-nav .nav-link.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 10%;
+    bottom: 10%;
+    width: 3px;
+    background: linear-gradient(180deg, #22d3ee, #10b981);
+    border-radius: 0 3px 3px 0;
+    box-shadow: 0 0 10px rgba(34, 211, 238, 0.6);
+    animation: navGlowPulse 2s ease-in-out infinite;
+}
+@keyframes navGlowPulse {
+    0%, 100% { opacity: 0.7; box-shadow: 0 0 8px rgba(34, 211, 238, 0.4); }
+    50% { opacity: 1; box-shadow: 0 0 16px rgba(34, 211, 238, 0.8); }
+}
+
+/* KPI card icon — slow float + subtle glow */
+.kpi-icon-bg {
+    animation: iconFloat 3.5s ease-in-out infinite;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.kpi-icon-bg:hover {
+    transform: scale(1.12) rotate(-4deg);
+    box-shadow: 0 0 18px currentColor;
+}
+@keyframes iconFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+}
+
+/* Top insight icons — breathing pulse */
+.top-insight-icon,
+.param-icon,
+.ai-icon {
+    display: inline-flex;
+    animation: iconBreathe 2.8s ease-in-out infinite;
+}
+@keyframes iconBreathe {
+    0%, 100% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.08); filter: brightness(1.15) drop-shadow(0 0 6px rgba(34, 211, 238, 0.5)); }
+}
+
+/* Action buttons — shimmer on hover + lift */
+.upload-btn,
+#resetFiltersBtn,
+#downloadExcel,
+#downloadPDF {
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.upload-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+    transition: left 0.6s ease;
+}
+.upload-btn:hover::before {
+    left: 100%;
+}
+.upload-btn:hover,
+#resetFiltersBtn:hover,
+#downloadExcel:hover,
+#downloadPDF:hover {
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4), 0 0 16px currentColor;
+}
+.upload-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+
+/* Exec header logo — gentle rotate-in + hover glow */
+.exec-header-logo,
+.dashboard-header-brand .exec-header-logo {
+    animation: logoReveal 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    transition: transform 0.4s ease, filter 0.4s ease;
+}
+.exec-header-logo:hover,
+.dashboard-header-brand .exec-header-logo:hover {
+    transform: rotate(10deg) scale(1.15);
+    filter: drop-shadow(0 0 10px #fbbf24);
+}
+@keyframes logoReveal {
+    0% { opacity: 0; transform: rotate(-180deg) scale(0.4); }
+    100% { opacity: 1; transform: rotate(0deg) scale(1); }
+}
