@@ -2821,26 +2821,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Frame the map to where the data points actually are.
-        // Fallback to the UT extent only if the current filter yields zero points.
-        const dataBounds = dataLatLngs.length > 0 ? L.latLngBounds(dataLatLngs) : null;
-        const fitTarget = (dataBounds && dataBounds.isValid()) ? dataBounds : utBoundsCache;
-
-        if (!mapInitiallyFitted && fitTarget && fitTarget.isValid()) {
+        // Frame the map to a wide Lagos-State regional view on first render,
+        // so the user can see the whole operating area (Lagos + neighbouring
+        // states + the UT polygons) before drilling in.
+        if (!mapInitiallyFitted) {
             try {
-                // flyToBounds naturally creates a zoom-out → pan → zoom-in arc,
-                // giving the "zoom in and zoom out" animated reveal
-                map.flyToBounds(fitTarget, {
+                // Lagos State centroid, wide regional zoom level
+                map.flyTo([6.55, 3.55], 8, {
                     duration: 2.8,
-                    easeLinearity: 0.25,
-                    padding: [30, 30],
-                    maxZoom: 15
+                    easeLinearity: 0.25
                 });
                 mapInitiallyFitted = true;
                 startMarkerPulse(20000);
             } catch (e) {
-                console.warn("flyToBounds failed", e);
-                map.fitBounds(fitTarget, { padding: [30, 30], maxZoom: 15 });
+                console.warn("flyTo failed", e);
+                map.setView([6.55, 3.55], 8);
                 mapInitiallyFitted = true;
                 startMarkerPulse(20000);
             }
