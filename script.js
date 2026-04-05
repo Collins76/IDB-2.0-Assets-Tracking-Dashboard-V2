@@ -2892,8 +2892,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }).addTo(boundaryLayer);
 
-            // Union bounds for the whole study area
-            boundaryFullBounds = L.featureGroup([lagosGeo, utGeo]).getBounds();
+            // Center the map on the Ikeja Electric service area (UT polygons),
+            // not the full Lagos State outline — the Lagos geometry extends into
+            // the lagoon and rural west, which would push the UTs off to one side.
+            boundaryFullBounds = utGeo.getBounds();
             boundariesLoaded = true;
         } catch (err) {
             console.error('Failed to load boundary GeoJSON:', err);
