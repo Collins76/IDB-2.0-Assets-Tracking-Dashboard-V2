@@ -2937,32 +2937,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const buildUtPopup = () => {
                         const utRows = (filteredData || []).filter(r => (r["Undertaking"] || '').toString().toUpperCase() === name.toUpperCase());
-                        const totalPoles = utRows.length;
-                        const feeders = new Set(utRows.map(r => r.Feeder).filter(Boolean));
-                        const dts = new Set(utRows.map(r => r["DT Name"]).filter(Boolean));
-                        const vendors = new Set(utRows.map(r => r.Vendor_Name).filter(Boolean));
-                        const users = new Set(utRows.map(r => r.User).filter(Boolean));
-                        const dates = utRows.map(r => r["Date/timestamp"] ? String(r["Date/timestamp"]).split(' ')[0] : '').filter(Boolean).sort();
-                        const dateRange = dates.length ? (dates[0] === dates[dates.length - 1] ? dates[0] : `${dates[0]} → ${dates[dates.length - 1]}`) : 'N/A';
-                        const topList = (set) => {
-                            if (set.size === 0) return 'N/A';
-                            const arr = [...set];
-                            return arr.slice(0, 3).join(', ') + (arr.length > 3 ? `, +${arr.length - 3} more` : '');
+                        const first = (arr) => {
+                            const v = arr.find(x => x !== undefined && x !== null && x !== '');
+                            return v === undefined ? 'N/A' : String(v);
                         };
+                        const feeder = first(utRows.map(r => r.Feeder));
+                        const dtName = first(utRows.map(r => r["DT Name"]));
+                        const vendor = first(utRows.map(r => r.Vendor_Name));
+                        const userName = first(utRows.map(r => getDisplayName(r.User)));
+                        const date = first(utRows.map(r => r["Date/timestamp"] ? String(r["Date/timestamp"]).split(' ')[0] : ''));
                         return `
-                            <div class="ut-popup">
-                                <div class="ut-popup-header" style="border-left-color:${col};">
-                                    <div class="ut-popup-title">${name}</div>
-                                    <div class="ut-popup-subtitle">Business Unit: <b>${bu || 'N/A'}</b></div>
-                                </div>
-                                <div class="ut-popup-body">
-                                    <div class="ut-popup-line"><b>Undertaking:</b> ${name}</div>
-                                    <div class="ut-popup-line"><b>Total Poles:</b> ${totalPoles.toLocaleString()}</div>
-                                    <div class="ut-popup-line"><b>Feeders (${feeders.size}):</b> ${topList(feeders)}</div>
-                                    <div class="ut-popup-line"><b>DTs (${dts.size}):</b> ${topList(dts)}</div>
-                                    <div class="ut-popup-line"><b>Vendors:</b> ${vendors.size ? [...vendors].join(', ') : 'N/A'}</div>
-                                    <div class="ut-popup-line"><b>Users:</b> ${users.size.toLocaleString()}</div>
-                                    <div class="ut-popup-line"><b>Date:</b> ${dateRange}</div>
+                            <div class="asset-popup">
+                                <div class="asset-popup-title">${name || 'N/A'}</div>
+                                <div class="asset-popup-divider"></div>
+                                <div class="asset-popup-table">
+                                    <div class="asset-popup-row"><div class="asset-popup-label">Business Unit</div><div class="asset-popup-value">${bu || 'N/A'}</div></div>
+                                    <div class="asset-popup-row"><div class="asset-popup-label">Undertaking</div><div class="asset-popup-value">${name || 'N/A'}</div></div>
+                                    <div class="asset-popup-row"><div class="asset-popup-label">Feeder</div><div class="asset-popup-value">${feeder}</div></div>
+                                    <div class="asset-popup-row"><div class="asset-popup-label">DT Name</div><div class="asset-popup-value">${dtName}</div></div>
+                                    <div class="asset-popup-row"><div class="asset-popup-label">Vendor</div><div class="asset-popup-value">${vendor}</div></div>
+                                    <div class="asset-popup-row"><div class="asset-popup-label">User</div><div class="asset-popup-value">${userName}</div></div>
+                                    <div class="asset-popup-row asset-popup-row-last"><div class="asset-popup-label">Date</div><div class="asset-popup-value">${date}</div></div>
                                 </div>
                             </div>
                         `;
@@ -2970,9 +2965,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     layer.on('click', () => layer.setPopupContent(buildUtPopup()));
                     layer.bindPopup(buildUtPopup(), {
-                        className: 'ut-popup-wrapper',
-                        maxWidth: 360,
-                        minWidth: 280,
+                        className: 'asset-popup-wrapper',
+                        maxWidth: 320,
+                        minWidth: 260,
                         closeButton: true,
                         autoPan: true
                     });
