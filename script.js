@@ -2940,23 +2940,24 @@ document.addEventListener('DOMContentLoaded', () => {
                         const utRows = (filteredData || []).filter(r => (r["Undertaking"] || '').toString().toUpperCase() === name.toUpperCase());
                         const dates = utRows.map(r => r["Date/timestamp"] ? String(r["Date/timestamp"]).split(' ')[0] : '').filter(Boolean).sort();
                         const dateRange = dates.length ? (dates[0] === dates[dates.length - 1] ? dates[0] : `${dates[0]} → ${dates[dates.length - 1]}`) : 'N/A';
-                        const feeders = new Set(utRows.map(r => r.Feeder).filter(Boolean));
-                        const dts = new Set(utRows.map(r => r["DT Name"]).filter(Boolean));
-                        const vendors = new Set(utRows.map(r => r.Vendor_Name).filter(Boolean));
-                        const users = new Set(utRows.map(r => r.User).filter(Boolean));
-                        const summary = (set) => set.size === 0 ? 'N/A' : (set.size === 1 ? [...set][0] : `${set.size}`);
+                        const poleIds = [...new Set(utRows.map(r => r["Lt PoleSLRN"] || r["LT Pole No"]).filter(Boolean))];
+                        const feeders = [...new Set(utRows.map(r => r.Feeder).filter(Boolean))];
+                        const dts = [...new Set(utRows.map(r => r["DT Name"]).filter(Boolean))];
+                        const vendors = [...new Set(utRows.map(r => r.Vendor_Name).filter(Boolean))];
+                        const userNames = [...new Set(utRows.map(r => getDisplayName(r.User)).filter(Boolean))];
+                        const listOrNA = (arr) => arr.length === 0 ? 'N/A' : arr.join(', ');
                         return `
                             <div class="asset-popup">
                                 <div class="asset-popup-title">${utVal(name)}</div>
                                 <div class="asset-popup-divider"></div>
                                 <div class="asset-popup-table">
-                                    <div class="asset-popup-row"><div class="asset-popup-label">Pole ID</div><div class="asset-popup-value">${utRows.length.toLocaleString()} poles</div></div>
+                                    <div class="asset-popup-row"><div class="asset-popup-label">Pole ID</div><div class="asset-popup-value">${listOrNA(poleIds)}</div></div>
                                     <div class="asset-popup-row"><div class="asset-popup-label">Business Unit</div><div class="asset-popup-value">${utVal(bu)}</div></div>
                                     <div class="asset-popup-row"><div class="asset-popup-label">Undertaking</div><div class="asset-popup-value">${utVal(name)}</div></div>
-                                    <div class="asset-popup-row"><div class="asset-popup-label">Feeder</div><div class="asset-popup-value">${summary(feeders)}</div></div>
-                                    <div class="asset-popup-row"><div class="asset-popup-label">DT Name</div><div class="asset-popup-value">${summary(dts)}</div></div>
-                                    <div class="asset-popup-row"><div class="asset-popup-label">Vendor</div><div class="asset-popup-value">${vendors.size === 0 ? 'N/A' : [...vendors].join(', ')}</div></div>
-                                    <div class="asset-popup-row"><div class="asset-popup-label">User</div><div class="asset-popup-value">${users.size === 0 ? 'N/A' : users.size + ' users'}</div></div>
+                                    <div class="asset-popup-row"><div class="asset-popup-label">Feeder</div><div class="asset-popup-value">${listOrNA(feeders)}</div></div>
+                                    <div class="asset-popup-row"><div class="asset-popup-label">DT Name</div><div class="asset-popup-value">${listOrNA(dts)}</div></div>
+                                    <div class="asset-popup-row"><div class="asset-popup-label">Vendor</div><div class="asset-popup-value">${listOrNA(vendors)}</div></div>
+                                    <div class="asset-popup-row"><div class="asset-popup-label">User</div><div class="asset-popup-value">${listOrNA(userNames)}</div></div>
                                     <div class="asset-popup-row asset-popup-row-last"><div class="asset-popup-label">Date</div><div class="asset-popup-value">${dateRange}</div></div>
                                 </div>
                             </div>
