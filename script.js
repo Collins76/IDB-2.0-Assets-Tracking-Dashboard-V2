@@ -2792,34 +2792,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const captureDate = d["Date/timestamp"] ? String(d["Date/timestamp"]).split(' ')[0] : "N/A";
                 const val = (v) => (v === undefined || v === null || v === '') ? 'N/A' : String(v);
+                const poleId = val(d["Lt PoleSLRN"] || d["LT Pole No"]);
                 const popupContent = `
                     <div class="asset-popup">
-                        <div class="asset-popup-title">${val(d["DT Name"])}</div>
-                        <div class="asset-popup-subtitle">${val(d["Lt PoleSLRN"] || d["LT Pole No"])}</div>
+                        <div class="asset-popup-title">${poleId}</div>
                         <div class="asset-popup-divider"></div>
-                        <div class="asset-popup-grid">
-                            <div class="asset-popup-label">BU</div>
-                            <div class="asset-popup-value">${val(d["Bussines Unit"])}</div>
-                            <div class="asset-popup-label">Undertaking</div>
-                            <div class="asset-popup-value">${val(d["Undertaking"])}</div>
-                            <div class="asset-popup-label">Feeder</div>
-                            <div class="asset-popup-value">${val(d["Feeder"])}</div>
-                            <div class="asset-popup-label">Upriser</div>
-                            <div class="asset-popup-value">${val(d["UpriserNo"])}</div>
-                            <div class="asset-popup-label">Pole Type</div>
-                            <div class="asset-popup-value">${val(d["Type of Pole"])}</div>
-                            <div class="asset-popup-label">Buildings</div>
-                            <div class="asset-popup-value">${val(d["No of Buildings Connected to the Pole"])}</div>
-                            <div class="asset-popup-label">Status</div>
-                            <div class="asset-popup-value">${val(d["Status"])}</div>
-                            <div class="asset-popup-label">Address</div>
-                            <div class="asset-popup-value">${val(d["Location address"])}</div>
-                            <div class="asset-popup-label">Vendor</div>
-                            <div class="asset-popup-value">${val(d["Vendor_Name"])}</div>
-                            <div class="asset-popup-label">Captured By</div>
-                            <div class="asset-popup-value">${val(getDisplayName(d["User"]))}</div>
-                            <div class="asset-popup-label">Date</div>
-                            <div class="asset-popup-value">${captureDate}</div>
+                        <div class="asset-popup-table">
+                            <div class="asset-popup-row"><div class="asset-popup-label">Pole ID</div><div class="asset-popup-value">${poleId}</div></div>
+                            <div class="asset-popup-row"><div class="asset-popup-label">Business Unit</div><div class="asset-popup-value">${val(d["Bussines Unit"])}</div></div>
+                            <div class="asset-popup-row"><div class="asset-popup-label">Undertaking</div><div class="asset-popup-value">${val(d["Undertaking"])}</div></div>
+                            <div class="asset-popup-row"><div class="asset-popup-label">Feeder</div><div class="asset-popup-value">${val(d["Feeder"])}</div></div>
+                            <div class="asset-popup-row"><div class="asset-popup-label">DT Name</div><div class="asset-popup-value">${val(d["DT Name"])}</div></div>
+                            <div class="asset-popup-row"><div class="asset-popup-label">Vendor</div><div class="asset-popup-value">${val(d["Vendor_Name"])}</div></div>
+                            <div class="asset-popup-row"><div class="asset-popup-label">User</div><div class="asset-popup-value">${val(getDisplayName(d["User"]))}</div></div>
+                            <div class="asset-popup-row asset-popup-row-last"><div class="asset-popup-label">Date</div><div class="asset-popup-value">${captureDate}</div></div>
                         </div>
                     </div>
                 `;
@@ -2949,42 +2935,42 @@ document.addEventListener('DOMContentLoaded', () => {
                         utGeo.resetStyle(e.target);
                     });
 
-                    layer.on('click', () => {
+                    const utVal = (v) => (v === undefined || v === null || v === '') ? 'N/A' : String(v);
+                    const buildUtPopup = () => {
                         const utRows = (filteredData || []).filter(r => (r["Undertaking"] || '').toString().toUpperCase() === name.toUpperCase());
-                        const totalPoles = utRows.length;
+                        const dates = utRows.map(r => r["Date/timestamp"] ? String(r["Date/timestamp"]).split(' ')[0] : '').filter(Boolean).sort();
+                        const dateRange = dates.length ? (dates[0] === dates[dates.length - 1] ? dates[0] : `${dates[0]} → ${dates[dates.length - 1]}`) : 'N/A';
                         const feeders = new Set(utRows.map(r => r.Feeder).filter(Boolean));
                         const dts = new Set(utRows.map(r => r["DT Name"]).filter(Boolean));
                         const vendors = new Set(utRows.map(r => r.Vendor_Name).filter(Boolean));
                         const users = new Set(utRows.map(r => r.User).filter(Boolean));
-                        const dates = utRows.map(r => r["Date/timestamp"] ? String(r["Date/timestamp"]).split(' ')[0] : '').filter(Boolean).sort();
-                        const dateRange = dates.length ? (dates[0] === dates[dates.length - 1] ? dates[0] : `${dates[0]} → ${dates[dates.length - 1]}`) : 'N/A';
-                        const topList = (set) => [...set].slice(0, 3).join(', ') + (set.size > 3 ? `, +${set.size - 3} more` : '') || 'N/A';
-
-                        layer.setPopupContent(`
-                            <div style="font-size:0.9em;color:#111;min-width:220px;line-height:1.5;">
-                                <div style="border-left:3px solid ${col};padding-left:8px;margin-bottom:6px;">
-                                    <b style="font-size:1.1em;">${name}</b><br>
-                                    <span style="color:#555;">Business Unit:</span> <b>${bu || 'N/A'}</b>
+                        const summary = (set) => set.size === 0 ? 'N/A' : (set.size === 1 ? [...set][0] : `${set.size}`);
+                        return `
+                            <div class="asset-popup">
+                                <div class="asset-popup-title">${utVal(name)}</div>
+                                <div class="asset-popup-divider"></div>
+                                <div class="asset-popup-table">
+                                    <div class="asset-popup-row"><div class="asset-popup-label">Pole ID</div><div class="asset-popup-value">${utRows.length.toLocaleString()} poles</div></div>
+                                    <div class="asset-popup-row"><div class="asset-popup-label">Business Unit</div><div class="asset-popup-value">${utVal(bu)}</div></div>
+                                    <div class="asset-popup-row"><div class="asset-popup-label">Undertaking</div><div class="asset-popup-value">${utVal(name)}</div></div>
+                                    <div class="asset-popup-row"><div class="asset-popup-label">Feeder</div><div class="asset-popup-value">${summary(feeders)}</div></div>
+                                    <div class="asset-popup-row"><div class="asset-popup-label">DT Name</div><div class="asset-popup-value">${summary(dts)}</div></div>
+                                    <div class="asset-popup-row"><div class="asset-popup-label">Vendor</div><div class="asset-popup-value">${vendors.size === 0 ? 'N/A' : [...vendors].join(', ')}</div></div>
+                                    <div class="asset-popup-row"><div class="asset-popup-label">User</div><div class="asset-popup-value">${users.size === 0 ? 'N/A' : users.size + ' users'}</div></div>
+                                    <div class="asset-popup-row asset-popup-row-last"><div class="asset-popup-label">Date</div><div class="asset-popup-value">${dateRange}</div></div>
                                 </div>
-                                <b>Undertaking:</b> ${name}<br>
-                                <b>Total Poles:</b> ${totalPoles.toLocaleString()}<br>
-                                <b>Feeders (${feeders.size}):</b> ${feeders.size ? topList(feeders) : 'N/A'}<br>
-                                <b>DTs (${dts.size}):</b> ${dts.size ? topList(dts) : 'N/A'}<br>
-                                <b>Vendors:</b> ${vendors.size ? [...vendors].join(', ') : 'N/A'}<br>
-                                <b>Users:</b> ${users.size.toLocaleString()}<br>
-                                <b>Date:</b> ${dateRange}
                             </div>
-                        `);
-                    });
+                        `;
+                    };
 
-                    layer.bindPopup(`
-                        <div style="font-size:0.9em;color:#111;min-width:150px;">
-                            <div style="border-left:3px solid ${col};padding-left:8px;">
-                                <b style="font-size:1.1em;">${name}</b><br>
-                                <span style="color:#555;">Loading summary…</span>
-                            </div>
-                        </div>
-                    `);
+                    layer.on('click', () => layer.setPopupContent(buildUtPopup()));
+                    layer.bindPopup(buildUtPopup(), {
+                        className: 'asset-popup-wrapper',
+                        maxWidth: 320,
+                        minWidth: 260,
+                        closeButton: true,
+                        autoPan: true
+                    });
 
                     // Polished centered label
                     const center = layer.getBounds().getCenter();
