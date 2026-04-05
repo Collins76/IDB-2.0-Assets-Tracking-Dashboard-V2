@@ -2816,27 +2816,31 @@ document.addEventListener('DOMContentLoaded', () => {
             const panel = document.getElementById('mapFilterPanel');
             if (!toggle || !panel) return;
 
-            // Sources: reuse the existing dashboard <select> elements so
-            // changes in the map control propagate through the same pipeline.
+            // Sources: 6 filters whose real state lives inside the MultiSelect
+            // instances registered at the top of this IIFE. We manipulate
+            // .selectedValues directly and call the instance's onChange() to
+            // trigger applyFilters(), same pathway as the sidebar.
             const sourceMap = [
-                { key: 'bu', label: 'Business Unit', selectId: 'buFilter' },
-                { key: 'ut', label: 'Undertaking', selectId: 'utFilter' },
-                { key: 'feeder', label: 'Feeder', selectId: 'feederFilter' },
-                { key: 'dt', label: 'DT Name', selectId: 'dtFilter' },
-                { key: 'vendor', label: 'Vendor', selectId: 'vendorFilter' },
-                { key: 'user', label: 'User', selectId: 'userFilter' }
+                { key: 'bu',     label: 'Business Unit', filterId: 'buFilter' },
+                { key: 'ut',     label: 'Undertaking',   filterId: 'utFilter' },
+                { key: 'feeder', label: 'Feeder',        filterId: 'feederFilter' },
+                { key: 'dt',     label: 'DT Name',       filterId: 'dtFilter' },
+                { key: 'vendor', label: 'Vendor',        filterId: 'vendorFilter' },
+                { key: 'user',   label: 'User',          filterId: 'userFilter' }
             ];
 
             const buildPanel = () => {
                 panel.innerHTML = sourceMap.map(src => {
-                    const sel = document.getElementById(src.selectId);
-                    if (!sel) return '';
-                    const opts = [...sel.options].filter(o => o.value && o.value !== 'All');
-                    const checks = opts.map(o =>
-                        `<label class="map-filter-check"><input type="checkbox" data-group="${src.key}" data-select="${src.selectId}" value="${o.value}" ${sel.value === o.value ? 'checked' : ''}>${o.textContent}</label>`
-                    ).join('');
+                    const ms = multiSelects[src.filterId];
+                    if (!ms) return '';
+                    const options = [...ms.selectEl.options].slice(1); // skip the "All" placeholder
+                    const checks = options.map(o => {
+                        const safe = String(o.value).replace(/"/g, '&quot;');
+                        const checked = ms.selectedValues.has(o.value) ? 'checked' : '';
+                        return `<label class="map-filter-check"><input type="checkbox" data-filter="${src.filterId}" value="${safe}" ${checked}><span>${o.textContent}</span></label>`;
+                    }).join('');
                     return `
-                        <div class="map-filter-group" data-group="${src.key}">
+                        <div class="map-filter-group" data-filter="${src.filterId}">
                             <div class="map-filter-group-head">
                                 <span>${src.label}</span>
                                 <span class="map-filter-actions">
@@ -2849,39 +2853,37 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                 }).join('');
 
-                // Wire up select all / none within each group (note: underlying
-                // selects are single-select, so "All" = reset to 'All' and
-                // "None" = first non-'All' option; behaviour mirrors the sidebar)
                 panel.querySelectorAll('.map-filter-group').forEach(group => {
-                    const selectId = group.querySelector('input[type="checkbox"]')?.dataset.select;
-                    if (!selectId) return;
-                    const sel = document.getElementById(selectId);
+                    const filterId = group.dataset.filter;
+                    const ms = multiSelects[filterId];
+                    if (!ms) return;
 
-                    group.querySelector('.map-filter-sel-all')?.addEventListener('click', () => {
-                        sel.value = 'All';
-                        sel.dispatchEvent(new Event('change', { bubbles: true }));
+                    const syncToSidebar = () => {
+                        // Rebuild the sidebar MultiSelect UI so its checkboxes
+                        // reflect the new selectedValues, then fire onChange.
+                        if (typeof ms.refresh === 'function') ms.refresh();
+                        if (typeof ms.onChange === 'function') ms.onChange();
+                    };
+
+                    group.querySelector('.map-filter-sel-all').addEventListener('click', () => {
+                        // Check every box: add every non-placeholder option.
+                        [...ms.selectEl.options].slice(1).forEach(o => ms.selectedValues.add(o.value));
+                        syncToSidebar();
                         buildPanel();
                     });
-                    group.querySelector('.map-filter-sel-none')?.addEventListener('click', () => {
-                        const firstOpt = [...sel.options].find(o => o.value && o.value !== 'All');
-                        if (firstOpt) {
-                            sel.value = firstOpt.value;
-                            sel.dispatchEvent(new Event('change', { bubbles: true }));
-                            buildPanel();
-                        }
+
+                    group.querySelector('.map-filter-sel-none').addEventListener('click', () => {
+                        // Uncheck every box: empty set = show all in this pipeline.
+                        ms.selectedValues.clear();
+                        syncToSidebar();
+                        buildPanel();
                     });
 
                     group.querySelectorAll('input[type="checkbox"]').forEach(cb => {
                         cb.addEventListener('change', () => {
-                            // Single-select underneath: last checked value wins
-                            if (cb.checked) {
-                                sel.value = cb.value;
-                                sel.dispatchEvent(new Event('change', { bubbles: true }));
-                            } else {
-                                sel.value = 'All';
-                                sel.dispatchEvent(new Event('change', { bubbles: true }));
-                            }
-                            buildPanel();
+                            if (cb.checked) ms.selectedValues.add(cb.value);
+                            else ms.selectedValues.delete(cb.value);
+                            syncToSidebar();
                         });
                     });
                 });
