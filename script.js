@@ -34,21 +34,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const rowsPerPage = 25;
     let map = null;
     let markersLayer = null;
-    let boundaryLayer = null;      // Lagos + UT polygon layers
-    let utLabelLayer = null;       // UT name labels (permanent)
-    let boundariesLoaded = false;  // one-time load guard
-    let boundaryFullBounds = null; // union bounds of Lagos + all UTs
-    let mapInitiallyFitted = false;// first-render fit guard
+    let boundaryLayer = null;       // Lagos + UT polygon layers
+    let utLabelLayer = null;        // UT name labels (permanent)
+    let boundariesLoaded = false;   // one-time load guard
+    let utBoundsCache = null;       // UT-only bounds (fallback when no data)
+    let mapInitiallyFitted = false; // first-render fit guard
+    let pulseTimer = null;          // setTimeout id for pulse auto-stop
 
-    // Color palette keyed by Business Unit (for UT boundary fills / strokes)
-    const BU_COLORS = {
-        'ABULE EGBA': '#3b82f6',
-        'IKEJA':      '#10b981',
-        'IKORODU':    '#a855f7',
-        'OSHODI':     '#f59e0b',
-        'SHOMOLU':    '#ef4444',
-        'AKOWONJO':   '#06b6d4'
-    };
+    // Generate a visually distinct color for each UT via golden-angle HSL.
+    // 54 UTs need 54 colors that are easy to tell apart at a glance.
+    const utColorFor = (i) => `hsl(${((i * 137.508) % 360).toFixed(0)}, 72%, 52%)`;
 
     // ── Multi-Select Dropdown Component ──
     const multiSelects = {};
@@ -2873,11 +2868,39 @@ document.addEventListener('DOMContentLoaded', () => {
                         utGeo.resetStyle(e.target);
                     });
 
+                    layer.on('click', () => {
+                        const utRows = (filteredData || []).filter(r => (r["Undertaking"] || '').toString().toUpperCase() === name.toUpperCase());
+                        const totalPoles = utRows.length;
+                        const feeders = new Set(utRows.map(r => r.Feeder).filter(Boolean));
+                        const dts = new Set(utRows.map(r => r["DT Name"]).filter(Boolean));
+                        const vendors = new Set(utRows.map(r => r.Vendor_Name).filter(Boolean));
+                        const users = new Set(utRows.map(r => r.User).filter(Boolean));
+                        const dates = utRows.map(r => r["Date/timestamp"] ? String(r["Date/timestamp"]).split(' ')[0] : '').filter(Boolean).sort();
+                        const dateRange = dates.length ? (dates[0] === dates[dates.length - 1] ? dates[0] : `${dates[0]} → ${dates[dates.length - 1]}`) : 'N/A';
+                        const topList = (set) => [...set].slice(0, 3).join(', ') + (set.size > 3 ? `, +${set.size - 3} more` : '') || 'N/A';
+
+                        layer.setPopupContent(`
+                            <div style="font-size:0.9em;color:#111;min-width:220px;line-height:1.5;">
+                                <div style="border-left:3px solid ${col};padding-left:8px;margin-bottom:6px;">
+                                    <b style="font-size:1.1em;">${name}</b><br>
+                                    <span style="color:#555;">Business Unit:</span> <b>${bu || 'N/A'}</b>
+                                </div>
+                                <b>Undertaking:</b> ${name}<br>
+                                <b>Total Poles:</b> ${totalPoles.toLocaleString()}<br>
+                                <b>Feeders (${feeders.size}):</b> ${feeders.size ? topList(feeders) : 'N/A'}<br>
+                                <b>DTs (${dts.size}):</b> ${dts.size ? topList(dts) : 'N/A'}<br>
+                                <b>Vendors:</b> ${vendors.size ? [...vendors].join(', ') : 'N/A'}<br>
+                                <b>Users:</b> ${users.size.toLocaleString()}<br>
+                                <b>Date:</b> ${dateRange}
+                            </div>
+                        `);
+                    });
+
                     layer.bindPopup(`
                         <div style="font-size:0.9em;color:#111;min-width:150px;">
                             <div style="border-left:3px solid ${col};padding-left:8px;">
                                 <b style="font-size:1.1em;">${name}</b><br>
-                                <span style="color:#555;">Business Unit: </span><b>${bu}</b>
+                                <span style="color:#555;">Loading summary…</span>
                             </div>
                         </div>
                     `);
