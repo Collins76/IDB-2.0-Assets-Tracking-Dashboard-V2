@@ -1367,8 +1367,8 @@ footer {
 }
 
 .sidebar-brand-logo {
-    width: 22px;
-    height: 22px;
+    width: 18px;
+    height: 18px;
     object-fit: contain;
     flex-shrink: 0;
 }
