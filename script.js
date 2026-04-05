@@ -2865,12 +2865,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 fetch('./data/ut_boundaries.geojson' + bust).then(r => r.json())
             ]);
 
-            // Lagos outer boundary — bold gold outline, no fill (sits under UTs)
+            // Lagos outer boundary — bold RED outline, fully visible, no fill
             const lagosGeo = L.geoJSON(lagosData, {
                 style: {
-                    color: '#fbbf24',
-                    weight: 3.5,
-                    opacity: 0.95,
+                    color: '#dc2626',
+                    weight: 5,
+                    opacity: 1,
                     fillOpacity: 0,
                     lineCap: 'round',
                     lineJoin: 'round'
@@ -2891,27 +2891,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             }).addTo(boundaryLayer);
 
-            // UT boundaries — color coded by Business Unit
+            // Assign a distinct color per UT up front so style() and onEachFeature
+            // read from a single source of truth.
+            utData.features.forEach((f, i) => {
+                f.properties._color = utColorFor(i);
+            });
+
+            // UT boundaries — 54 distinct colors, visible fill, bold outline
             const utGeo = L.geoJSON(utData, {
                 style: (feat) => {
-                    const bu = (feat.properties.BU || '').toUpperCase();
-                    const col = BU_COLORS[bu] || '#94a3b8';
+                    const col = feat.properties._color;
                     return {
                         color: col,
-                        weight: 1.4,
-                        opacity: 0.9,
+                        weight: 2.2,
+                        opacity: 1,
                         fillColor: col,
-                        fillOpacity: 0.08,
+                        fillOpacity: 0.28,
                         lineJoin: 'round'
                     };
                 },
                 onEachFeature: (feat, layer) => {
                     const name = feat.properties.Name || feat.properties.UT || '';
                     const bu = feat.properties.BU || '';
-                    const col = BU_COLORS[(bu || '').toUpperCase()] || '#94a3b8';
+                    const col = feat.properties._color;
 
                     layer.on('mouseover', e => {
-                        e.target.setStyle({ fillOpacity: 0.28, weight: 2.4 });
+                        e.target.setStyle({ fillOpacity: 0.45, weight: 3.2 });
                         e.target.bringToFront();
                     });
                     layer.on('mouseout', e => {
@@ -2969,10 +2974,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }).addTo(boundaryLayer);
 
-            // Center the map on the Ikeja Electric service area (UT polygons),
-            // not the full Lagos State outline — the Lagos geometry extends into
-            // the lagoon and rural west, which would push the UTs off to one side.
-            boundaryFullBounds = utGeo.getBounds();
+            // Cached fallback for the empty-filter case (first render uses data bounds).
+            utBoundsCache = utGeo.getBounds();
             boundariesLoaded = true;
         } catch (err) {
             console.error('Failed to load boundary GeoJSON:', err);
