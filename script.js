@@ -2791,19 +2791,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 dataLatLngs.push([lat, lon]);
 
                 const captureDate = d["Date/timestamp"] ? String(d["Date/timestamp"]).split(' ')[0] : "N/A";
+                const val = (v) => (v === undefined || v === null || v === '') ? 'N/A' : String(v);
                 const popupContent = `
-                    <div style="font-size: 0.9em; color: #333; line-height: 1.5;">
-                        <b>Pole ID:</b> ${d["Lt PoleSLRN"] || d["LT Pole No"] || "N/A"}<br>
-                        <b>Business Unit:</b> ${d["Bussines Unit"] || "N/A"}<br>
-                        <b>Undertaking:</b> ${d["Undertaking"] || "N/A"}<br>
-                        <b>Feeder:</b> ${d.Feeder || "N/A"}<br>
-                        <b>DT Name:</b> ${d["DT Name"] || "N/A"}<br>
-                        <b>Vendor:</b> ${d.Vendor_Name || "N/A"}<br>
-                        <b>User:</b> ${getDisplayName(d.User) || "N/A"}<br>
-                        <b>Date:</b> ${captureDate}
+                    <div class="asset-popup">
+                        <div class="asset-popup-title">${val(d["DT Name"])}</div>
+                        <div class="asset-popup-subtitle">${val(d["Lt PoleSLRN"] || d["LT Pole No"])}</div>
+                        <div class="asset-popup-divider"></div>
+                        <div class="asset-popup-grid">
+                            <div class="asset-popup-label">BU</div>
+                            <div class="asset-popup-value">${val(d["Bussines Unit"])}</div>
+                            <div class="asset-popup-label">Undertaking</div>
+                            <div class="asset-popup-value">${val(d["Undertaking"])}</div>
+                            <div class="asset-popup-label">Feeder</div>
+                            <div class="asset-popup-value">${val(d["Feeder"])}</div>
+                            <div class="asset-popup-label">Upriser</div>
+                            <div class="asset-popup-value">${val(d["UpriserNo"])}</div>
+                            <div class="asset-popup-label">Pole Type</div>
+                            <div class="asset-popup-value">${val(d["Type of Pole"])}</div>
+                            <div class="asset-popup-label">Buildings</div>
+                            <div class="asset-popup-value">${val(d["No of Buildings Connected to the Pole"])}</div>
+                            <div class="asset-popup-label">Status</div>
+                            <div class="asset-popup-value">${val(d["Status"])}</div>
+                            <div class="asset-popup-label">Address</div>
+                            <div class="asset-popup-value">${val(d["Location address"])}</div>
+                            <div class="asset-popup-label">Vendor</div>
+                            <div class="asset-popup-value">${val(d["Vendor_Name"])}</div>
+                            <div class="asset-popup-label">Captured By</div>
+                            <div class="asset-popup-value">${val(getDisplayName(d["User"]))}</div>
+                            <div class="asset-popup-label">Date</div>
+                            <div class="asset-popup-value">${captureDate}</div>
+                        </div>
                     </div>
                 `;
-                marker.bindPopup(popupContent);
+                marker.bindPopup(popupContent, {
+                    className: 'asset-popup-wrapper',
+                    maxWidth: 320,
+                    minWidth: 260,
+                    closeButton: true,
+                    autoPan: true
+                });
                 markersLayer.addLayer(marker);
                 count++;
             }

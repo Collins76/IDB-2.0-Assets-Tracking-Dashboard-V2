@@ -2114,3 +2114,97 @@ header.exec-header img.exec-header-logo {
         opacity: 1;
     }
 }
+
+/* ───────── Asset Attribute Popup (data point marker) ───────── */
+.asset-popup-wrapper .leaflet-popup-content-wrapper {
+    background: linear-gradient(160deg, #0b1220 0%, #1a2238 55%, #111a2e 100%);
+    color: #e2e8f0;
+    border: 1px solid rgba(251, 191, 36, 0.45);
+    border-radius: 10px;
+    box-shadow: 0 14px 38px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(251, 191, 36, 0.08);
+    padding: 2px;
+}
+
+.asset-popup-wrapper .leaflet-popup-content {
+    margin: 0;
+    line-height: 1.4;
+}
+
+.asset-popup-wrapper .leaflet-popup-tip {
+    background: #1a2238;
+    border: 1px solid rgba(251, 191, 36, 0.45);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+.asset-popup-wrapper .leaflet-popup-close-button {
+    color: #fbbf24 !important;
+    font-size: 20px !important;
+    font-weight: 700 !important;
+    padding: 6px 8px 0 0 !important;
+    top: 2px !important;
+    right: 2px !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+.asset-popup-wrapper .leaflet-popup-close-button:hover {
+    color: #fff !important;
+}
+
+.asset-popup {
+    padding: 14px 18px 14px 16px;
+    min-width: 240px;
+    max-width: 300px;
+    font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif;
+}
+
+.asset-popup-title {
+    color: #fb923c;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+    line-height: 1.3;
+    word-break: break-word;
+    text-transform: uppercase;
+    padding-right: 18px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.asset-popup-subtitle {
+    color: #f97316;
+    font-size: 11px;
+    font-weight: 700;
+    margin-top: 3px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    opacity: 0.92;
+}
+
+.asset-popup-divider {
+    height: 1.5px;
+    background: linear-gradient(90deg, transparent 0%, rgba(251, 191, 36, 0.85) 15%, rgba(251, 191, 36, 0.85) 85%, transparent 100%);
+    margin: 10px 0 11px;
+    border-radius: 2px;
+    box-shadow: 0 0 6px rgba(251, 191, 36, 0.35);
+}
+
+.asset-popup-grid {
+    display: grid;
+    grid-template-columns: minmax(72px, auto) 1fr;
+    column-gap: 14px;
+    row-gap: 7px;
+    font-size: 11.5px;
+}
+
+.asset-popup-label {
+    color: #94a3b8;
+    font-weight: 500;
+    white-space: nowrap;
+    letter-spacing: 0.2px;
+}
+
+.asset-popup-value {
+    color: #f1f5f9;
+    font-weight: 700;
+    text-align: right;
+    word-break: break-word;
+    letter-spacing: 0.1px;
+}
